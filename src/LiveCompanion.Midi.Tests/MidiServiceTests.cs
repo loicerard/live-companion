@@ -135,9 +135,12 @@ public class MidiServiceTests
 
         service.SendImmediate("Q1", 0xF8);
 
-        // Make port available now
+        // Make port available now and allow time for reconnect
         factory.ThrowOnOpen = false;
         var port = factory.RegisterOutput("Q1");
+
+        // Wait for the reconnect loop to attempt reconnection
+        Thread.Sleep(config.ReconnectDelayMs + 50);
 
         // SendImmediate for a different message
         service.SendImmediate("Q1", 0xF8);
