@@ -172,13 +172,152 @@ Internally delegates to `MetronomeWaveProvider` which generates stereo click aud
 - **Missing sample files**: `SamplePlayer` silently skips unknown files during `OnAudioCueFired` (logged but no crash)
 - **No ASIO driver configured**: `AsioService.Initialize()` throws `InvalidOperationException` with a clear message
 
+## Phase 3 — MIDI Engine (LiveCompanion.Midi)
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     LiveCompanion.Midi                       │
+│                                                              │
+│  ┌─────────────┐  MidiPresetChanged   ┌──────────────────┐  │
+│  │ SetlistPlayer│ ──────────────────► │   MidiRouter     │  │
+│  └─────────────┘                      │  (PC + CC route) │  │
+│                                       └────────┬─────────┘  │
+│  ┌─────────────────────┐                       │            │
+│  │ MetronomeAudioEngine │  TickAdvanced         │            │
+│  │  (ASIO callback)    │ ──────────┐           │            │
+│  └─────────────────────┘          ▼            ▼            │
+│                          ┌──────────────┐  ┌────────────┐   │
+│                          │MidiClockEngine│  │MidiService │   │
+│                          │ 24 clk/beat  │  │(port mgmt) │   │
+│                          └──────────────┘  └─────┬──────┘   │
+│  ┌────────────────┐                              │           │
+│  │MidiInputHandler│     IMidiOutput / IMidiInput  │           │
+│  │ (SSPD→actions) │     NAudio MidiOut / MidiIn  ◄┘          │
+│  └────────────────┘                                          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### MIDI Routing Table
+
+| DeviceTarget | Default port name  | Direction | Content                        |
+|--------------|--------------------|-----------|---------------------------------|
+| Quad1        | "Quad Cortex 1"    | OUT       | Program Change, CC, MIDI Clock  |
+| Quad2        | "Quad Cortex 2"    | OUT       | Program Change, CC, MIDI Clock  |
+| SSPD         | "Roland SSPD"      | OUT + IN  | Program Change, CC; IN: footswitch |
+
+Port names are configurable in `MidiConfiguration.OutputDevices`.
+
+### MIDI Clock — Key Design Decision
+
+**The MIDI Clock is driven by the ASIO audio callback, not an independent timer.**
+
+`MidiClockEngine` subscribes to `MetronomeAudioEngine.TickAdvanced`, which fires on the
+high-priority ASIO audio thread from inside `MetronomeWaveProvider.Read()`. This guarantees
+that the MIDI clock and the audio metronome click are derived from the exact same tick counter
+with sub-sample accuracy — no drift, no jitter from competing timers.
+
+```
+ASIO driver callback
+  └─► MetronomeWaveProvider.Read()
+        ├─► TickAdvanced fires (on ASIO audio thread)
+        │     └─► MidiClockEngine.OnTickAdvanced()
+        │           └─► every 20 ticks: midiOutShortMsg(0xF8)  ← MIDI Clock pulse
+        └─► Beat fires every 480 ticks = 1 quarter note
+```
+
+**MIDI Clock math (PPQN = 480):**
+- MIDI spec: 24 timing clock messages per quarter note
+- Ticks per pulse: 480 / 24 = **20 ticks**
+- At 120 BPM: 1 clock every ≈ 0.833 ms (sub-millisecond lock with audio)
+
+**BPM changes** are handled implicitly. When `SetlistPlayer.SectionChanged` fires, the
+`MetronomeAudioEngine` calls `ChangeTempo()`, which changes the ASIO callback rate. The
+`TickAdvanced` events then arrive faster or slower, and the MIDI clock interval tracks
+the new BPM automatically with no explicit action in `MidiClockEngine`.
+
+**Clock messages use `SendImmediate`** (no queue). Stale timing pulses are dropped
+rather than replayed in a burst on reconnect.
+
+### MIDI Message Encoding (NAudio `MidiOut.Send(int)`)
+
+```
+bits  0– 7: status byte   (e.g. 0xC0 = Program Change ch 0)
+bits  8–15: data byte 1   (program number, controller number)
+bits 16–23: data byte 2   (value — 0 for PC, 0–127 for CC)
+```
+
+| Message         | Encoding example                        |
+|-----------------|-----------------------------------------|
+| Program Change  | `0xC0 \| (prog << 8)`                   |
+| Control Change  | `0xB0 \| (ctrl << 8) \| (val << 16)`    |
+| MIDI Clock      | `0xF8`                                  |
+| MIDI Start      | `0xFA`                                  |
+| MIDI Continue   | `0xFB`                                  |
+| MIDI Stop       | `0xFC`                                  |
+
+### Error Handling — MIDI Port Loss
+
+| Scenario                     | Behaviour                                              |
+|------------------------------|--------------------------------------------------------|
+| Port not found on open       | `MidiFault` event fired; reconnect loop started        |
+| `Send()` throws              | `MidiFault` fired; message queued for replay on reconnect |
+| `SendImmediate()` throws     | Message silently dropped; `MidiFault` fired            |
+| Reconnect interval           | Every `ReconnectDelayMs` ms (default: 5 000 ms)        |
+| Reconnect success            | `PortReconnected` fired; pending queue drained         |
+
+### Components
+
+#### MidiConfiguration
+Serializable POCO (JSON). Contains:
+- `OutputDevices`: `DeviceTarget` → `(PortName, Channel)`
+- `MidiInputPortName`: MIDI IN port for footswitch messages
+- `InputMappings`: `(StatusType, Channel, Data1, Data2) → MidiAction` rules
+- `ClockTargets`: devices receiving MIDI Clock (default: Quad1, Quad2)
+- `ReconnectDelayMs`: auto-reconnect interval (default: 5 000 ms)
+
+#### MidiService
+- Opens output ports on first use (lazy)
+- `Send()`: delivers to port or queues if unavailable
+- `SendImmediate()`: delivers or drops (for MIDI Clock — no queue)
+- Auto-reconnect loop drains pending queue on success
+
+#### MidiRouter
+- Subscribes to `SetlistPlayer.MidiPresetChanged`
+- Looks up port via `MidiConfiguration.OutputDevices[DeviceTarget]`
+- Sends Program Change then all CCs in order on the correct channel
+
+#### MidiClockEngine
+- Subscribes to `MetronomeAudioEngine.TickAdvanced` (ASIO thread)
+- Every `PPQN / 24` ticks sends `0xF8` to all `ClockTargets`
+- `Start()` → `0xFA`; `Stop()` → `0xFC`; `Continue()` → `0xFB`
+
+#### MidiInputHandler
+- Opens the configured MIDI IN port
+- `ProcessMessage()`: first-match rule fires `ActionTriggered`
+- Matching: StatusType (nibble-masked), Channel (-1=any), Data1/Data2 (-1=any)
+- Auto-reconnect on port loss
+
+### Testability
+
+All NAudio MIDI types are hidden behind `IMidiOutput`, `IMidiInput`, `IMidiPortFactory`.
+Test project provides:
+- `FakeMidiOutput`: records `Send()` calls; `ThrowOnSend` simulates faults
+- `FakeMidiInput`: injects messages via `SimulateMessage()`
+- `FakeMidiPortFactory`: returns fakes by name; `ThrowOnOpen` simulates unavailability
+
+MIDI clock tests pump `MetronomeWaveProvider` frames deterministically, verifying that
+exactly 24 clock pulses are emitted per PPQN-worth of ticks (same pattern as Phase 2
+audio engine tests).
+
 ## Project Phases
 
 | Phase | Scope                                          | Status      |
 |-------|-------------------------------------------------|-------------|
 | 1     | **Core** — Models, state machine, tick engine, JSON persistence, tests | Done |
-| 2     | **Audio ASIO** — High-precision timer via ASIO callback, sample playback on dedicated outputs, click track | Current |
-| 3     | **MIDI** — Real MIDI output to Quad Cortex x2 and Roland SSPD | Planned |
+| 2     | **Audio ASIO** — High-precision timer via ASIO callback, sample playback on dedicated outputs, click track | Done |
+| 3     | **MIDI** — Program Change + CC routing, MIDI Clock sync via ASIO callback, MIDI input handling | Done |
 | 4     | **UI** — WPF/Avalonia interface: setlist editor, live view, emergency stop button | Planned |
 | 5     | **Integration SSPD** — Full Roland SSPD scene/footswitch integration | Planned |
 
@@ -200,6 +339,16 @@ Internally delegates to `MetronomeWaveProvider` which generates stereo click aud
 /src/LiveCompanion.Audio.Tests/
   Fakes/              — FakeAsioOut, FakeAsioOutFactory
                       — xUnit tests (config, ASIO service, metronome, sample player)
+/src/LiveCompanion.Midi/
+  Abstractions/       — IMidiOutput, IMidiInput, IMidiPortFactory, NAudio implementations
+  MidiConfiguration.cs — Serializable MIDI config POCO
+  MidiService.cs      — Port lifecycle, fault handling, message queueing, auto-reconnect
+  MidiRouter.cs       — Program Change + CC dispatch per DeviceTarget
+  MidiClockEngine.cs  — MIDI Clock tied to ASIO tick callback (24 pulses/quarter note)
+  MidiInputHandler.cs — MIDI IN message → MidiAction mapping
+/src/LiveCompanion.Midi.Tests/
+  Fakes/              — FakeMidiOutput, FakeMidiInput, FakeMidiPortFactory
+                      — xUnit tests (config, service, router, clock engine, input handler)
 /data/setlists/       — JSON setlist files
 /data/samples/        — Audio sample files (WAV, MP3, OGG)
 /docs/                — This document
