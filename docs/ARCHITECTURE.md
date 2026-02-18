@@ -97,12 +97,87 @@ State machine with three states:
 - Polymorphic support via `[JsonDerivedType]` on `SongEvent`
 - Provides both sync (string) and async (file) APIs
 
+## Phase 2 — Audio Engine (LiveCompanion.Audio)
+
+### Architecture
+
+The audio engine replaces the `Task.Delay`-based timing of Phase 1 with a high-precision ASIO callback-driven clock. The ASIO buffer callback is the single source of timing truth.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      AsioService                        │
+│  (driver lifecycle, fault handling, auto-reconnect)     │
+│                                                         │
+│   ┌──────────────────────────────────────────────────┐  │
+│   │              AsioOutputRouter                    │  │
+│   │  (multi-channel ISampleProvider)                 │  │
+│   │                                                  │  │
+│   │   Ch 0-1 ◄── MetronomeWaveProvider               │  │
+│   │               (click tones + tick counter)       │  │
+│   │                                                  │  │
+│   │   Ch 2-3 ◄── MixingSampleProvider                │  │
+│   │               (concurrent sample playback)       │  │
+│   └──────────────────────────────────────────────────┘  │
+│                         │                               │
+│                    AsioOut.Init()                        │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+
+**ASIO callback = clock**: `MetronomeWaveProvider.Read()` is called by the ASIO driver on a high-priority audio thread. For each audio frame, the provider accumulates fractional samples and advances the tick counter when the accumulation reaches one tick's worth of samples (`SampleRate × 60 / (BPM × PPQN)`). This gives sub-sample timing accuracy without a separate timing thread.
+
+**Multi-channel routing**: `AsioOutputRouter` is a multi-channel `ISampleProvider` that takes stereo sources and places them at configurable channel offsets in the output buffer. Default: metronome on channels 0-1, samples on channels 2-3.
+
+**Testability**: `IAsioOut` and `IAsioOutFactory` abstract the NAudio ASIO layer. Tests use `FakeAsioOut` which allows manually pumping audio buffers to verify tick advancement and event dispatch deterministically.
+
+**Pre-loaded samples**: `SamplePlayer` loads all audio files into memory (`float[]`) at setlist load time. No disk I/O during live performance.
+
+### Components
+
+#### AudioConfiguration
+POCO serializable to JSON. Contains:
+- ASIO driver name, buffer size, sample rate
+- Metronome channel offset, sample channel offset
+- Volume levels (master metronome, strong beat, weak beat)
+- Auto-reconnect settings
+
+#### AsioService
+Manages the ASIO driver lifecycle:
+- Lists available ASIO drivers
+- Initializes `AsioOut` with the configured driver
+- Creates the `AsioOutputRouter` audio pipeline
+- Emits `AudioFault` on driver errors without crashing
+- Automatic reconnection loop (configurable)
+
+#### MetronomeAudioEngine
+Drop-in replacement for the Phase 1 `MetronomeEngine`. Same public API:
+- `CurrentTick`, `IsRunning`
+- `Start()`, `Stop()`, `Reset()`
+- `ChangeTempo(bpm, timeSignature)`
+- Events: `TickAdvanced`, `Beat`
+
+Internally delegates to `MetronomeWaveProvider` which generates stereo click audio (sine wave, 1000 Hz strong beat / 800 Hz weak beat, linear fade envelope) and advances ticks in its `Read()` method.
+
+#### SamplePlayer
+- Subscribes to `SetlistPlayer.AudioCueFired`
+- Pre-loads audio files (WAV, MP3, OGG) into memory via NAudio's `AudioFileReader`
+- Mixes concurrent samples via `MixingSampleProvider`
+- Applies per-sample gain (dB → linear conversion)
+- Routes output to configurable ASIO channel pair
+
+### Error Handling
+
+- **Driver disappearance**: `AsioService` catches `PlaybackStopped` with a non-null exception, emits `AudioFault`, and optionally starts a reconnection loop
+- **Missing sample files**: `SamplePlayer` silently skips unknown files during `OnAudioCueFired` (logged but no crash)
+- **No ASIO driver configured**: `AsioService.Initialize()` throws `InvalidOperationException` with a clear message
+
 ## Project Phases
 
 | Phase | Scope                                          | Status      |
 |-------|-------------------------------------------------|-------------|
-| 1     | **Core** — Models, state machine, tick engine, JSON persistence, tests | Current |
-| 2     | **Audio ASIO** — High-precision timer via ASIO callback, sample playback on dedicated outputs, click track | Planned |
+| 1     | **Core** — Models, state machine, tick engine, JSON persistence, tests | Done |
+| 2     | **Audio ASIO** — High-precision timer via ASIO callback, sample playback on dedicated outputs, click track | Current |
 | 3     | **MIDI** — Real MIDI output to Quad Cortex x2 and Roland SSPD | Planned |
 | 4     | **UI** — WPF/Avalonia interface: setlist editor, live view, emergency stop button | Planned |
 | 5     | **Integration SSPD** — Full Roland SSPD scene/footswitch integration | Planned |
@@ -111,11 +186,21 @@ State machine with three states:
 
 ```
 /src/LiveCompanion.Core/
-  Models/         — Domain entities (Song, Setlist, events, presets)
-  Engine/         — MetronomeEngine, SetlistPlayer, SetlistRepository
+  Models/             — Domain entities (Song, Setlist, events, presets)
+  Engine/             — MetronomeEngine, SetlistPlayer, SetlistRepository
 /src/LiveCompanion.Core.Tests/
-                  — xUnit tests (navigation, dispatch, serialization)
-/data/setlists/   — JSON setlist files
-/data/samples/    — Audio sample files (WAV)
-/docs/            — This document
+                      — xUnit tests (navigation, dispatch, serialization)
+/src/LiveCompanion.Audio/
+  Abstractions/       — IAsioOut, IAsioOutFactory, NAudioAsioOut, NAudioAsioOutFactory
+  Providers/          — MetronomeWaveProvider, AsioOutputRouter
+  AsioService.cs      — ASIO driver lifecycle management
+  MetronomeAudioEngine.cs — ASIO-callback-driven metronome
+  SamplePlayer.cs     — Audio cue playback with pre-loading and mixing
+  AudioConfiguration.cs — Serializable audio config POCO
+/src/LiveCompanion.Audio.Tests/
+  Fakes/              — FakeAsioOut, FakeAsioOutFactory
+                      — xUnit tests (config, ASIO service, metronome, sample player)
+/data/setlists/       — JSON setlist files
+/data/samples/        — Audio sample files (WAV, MP3, OGG)
+/docs/                — This document
 ```
