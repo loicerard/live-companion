@@ -1,0 +1,159 @@
+{
+  "name": "Friday Night Gig",
+  "ppqn": 480,
+  "songs": [
+    {
+      "title": "Riders on the Storm",
+      "artist": "The Doors",
+      "durationTicks": 46080,
+      "events": [
+        {
+          "$type": "SectionChange",
+          "tick": 0,
+          "sectionName": "Intro",
+          "bpm": 110,
+          "timeSignature": { "numerator": 4, "denominator": 4 },
+          "presets": [
+            {
+              "device": "quad1",
+              "channel": 1,
+              "programChange": 12,
+              "controlChanges": [
+                { "controller": 1, "value": 64 },
+                { "controller": 11, "value": 100 }
+              ]
+            },
+            {
+              "device": "quad2",
+              "channel": 2,
+              "programChange": 5,
+              "controlChanges": [
+                { "controller": 7, "value": 90 }
+              ]
+            },
+            {
+              "device": "sspd",
+              "channel": 10,
+              "programChange": 0,
+              "controlChanges": []
+            }
+          ]
+        },
+        {
+          "$type": "AudioCue",
+          "tick": 1920,
+          "sampleFileName": "rain-loop.wav",
+          "gainDb": -3.0
+        },
+        {
+          "$type": "SectionChange",
+          "tick": 7680,
+          "sectionName": "Verse 1",
+          "bpm": 120,
+          "timeSignature": { "numerator": 4, "denominator": 4 },
+          "presets": [
+            {
+              "device": "quad1",
+              "channel": 1,
+              "programChange": 14,
+              "controlChanges": [
+                { "controller": 1, "value": 80 }
+              ]
+            },
+            {
+              "device": "quad2",
+              "channel": 2,
+              "programChange": 7,
+              "controlChanges": [
+                { "controller": 7, "value": 100 }
+              ]
+            },
+            {
+              "device": "sspd",
+              "channel": 10,
+              "programChange": 1,
+              "controlChanges": []
+            }
+          ]
+        },
+        {
+          "$type": "SectionChange",
+          "tick": 23040,
+          "sectionName": "Chorus",
+          "bpm": 125,
+          "timeSignature": { "numerator": 4, "denominator": 4 },
+          "presets": [
+            {
+              "device": "quad1",
+              "channel": 1,
+              "programChange": 18,
+              "controlChanges": [
+                { "controller": 1, "value": 100 },
+                { "controller": 11, "value": 127 }
+              ]
+            },
+            {
+              "device": "quad2",
+              "channel": 2,
+              "programChange": 10,
+              "controlChanges": [
+                { "controller": 7, "value": 120 }
+              ]
+            },
+            {
+              "device": "sspd",
+              "channel": 10,
+              "programChange": 2,
+              "controlChanges": []
+            }
+          ]
+        },
+        {
+          "$type": "AudioCue",
+          "tick": 38400,
+          "sampleFileName": "thunder-hit.wav",
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "title": "Closer",
+      "artist": "Nine Inch Nails",
+      "durationTicks": 15360,
+      "events": [
+        {
+          "$type": "SectionChange",
+          "tick": 0,
+          "sectionName": "Main Riff",
+          "bpm": 95,
+          "timeSignature": { "numerator": 4, "denominator": 4 },
+          "presets": [
+            {
+              "device": "quad1",
+              "channel": 1,
+              "programChange": 20,
+              "controlChanges": [
+                { "controller": 1, "value": 50 },
+                { "controller": 7, "value": 110 }
+              ]
+            },
+            {
+              "device": "quad2",
+              "channel": 2,
+              "programChange": 20,
+              "controlChanges": [
+                { "controller": 1, "value": 50 }
+              ]
+            },
+            {
+              "device": "sspd",
+              "channel": 10,
+              "programChange": 3,
+              "controlChanges": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
