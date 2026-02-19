@@ -1,9 +1,12 @@
 using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using LiveCompanion.App.Services;
 using LiveCompanion.App.ViewModels;
 using LiveCompanion.Audio;
+using LiveCompanion.Audio.Abstractions;
 using LiveCompanion.Midi;
+using Microsoft.Extensions.Logging;
 
 namespace LiveCompanion.App;
 
@@ -19,8 +22,10 @@ public partial class App : Application
         var audioConfig = await TryLoadAudioConfigAsync();
         var midiConfig  = await TryLoadMidiConfigAsync();
 
-        // Composition root
-        _services = new AppServices(audioConfig, midiConfig);
+        // Composition root — pass a factory with a debug logger so ASIO driver
+        // enumeration details appear in the VS Output window (Debug pane).
+        var asioFactory = new NAudioAsioOutFactory(new AsioDebugLogger());
+        _services = new AppServices(audioConfig, midiConfig, asioFactory);
 
         var dispatcher  = new WpfDispatcher();
         var navService  = new NavigationService();
@@ -103,5 +108,26 @@ public partial class App : Application
         catch { /* use defaults */ }
 
         return new MidiConfiguration();
+    }
+
+    // ── Simple logger that forwards to System.Diagnostics.Debug ────────────
+    // Visible in Visual Studio: View → Output → Debug.
+    // No extra NuGet package needed — ILogger<T> is already in
+    // Microsoft.Extensions.Logging.Abstractions which the App project references.
+
+    private sealed class AsioDebugLogger : ILogger<NAudioAsioOutFactory>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
+                                Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            var msg = $"[ASIO][{logLevel}] {formatter(state, exception)}";
+            Debug.WriteLine(msg);
+            if (exception is not null)
+                Debug.WriteLine($"[ASIO][Exception] {exception.GetType().Name}: {exception.Message}");
+        }
     }
 }
