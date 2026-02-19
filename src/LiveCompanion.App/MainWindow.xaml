@@ -27,24 +27,18 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <!-- Left nav bar (hidden in performance mode) -->
-            <ColumnDefinition>
-                <ColumnDefinition.Style>
-                    <Style TargetType="ColumnDefinition">
-                        <Setter Property="Width" Value="64" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsPerformanceMode}" Value="True">
-                                <Setter Property="Width" Value="0" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ColumnDefinition.Style>
-            </ColumnDefinition>
+            <!-- Left nav bar (hidden in performance mode via Visibility on the Border) -->
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- ── Left navigation sidebar ── -->
+        <!-- ColumnDefinition does not support Style/DataTrigger (not FrameworkElement),
+             so we hide the Border itself and use Width=Auto on the column. -->
         <Border Grid.Column="0"
+                Width="64"
+                Visibility="{Binding IsPerformanceMode,
+                    Converter={StaticResource BoolToCollapsedConverter}}"
                 Background="{StaticResource BackgroundBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,0,1,0">
