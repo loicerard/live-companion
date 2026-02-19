@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using LiveCompanion.App.Services;
 using LiveCompanion.App.ViewModels;
