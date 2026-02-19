@@ -34,7 +34,8 @@ public sealed class AppServices : IDisposable
     public AudioConfiguration AudioConfig { get; private set; }
     public MidiConfiguration MidiConfig { get; private set; }
 
-    public AppServices(AudioConfiguration audioConfig, MidiConfiguration midiConfig)
+    public AppServices(AudioConfiguration audioConfig, MidiConfiguration midiConfig,
+                       IAsioOutFactory? asioFactory = null)
     {
         AudioConfig = audioConfig;
         MidiConfig = midiConfig;
@@ -44,7 +45,7 @@ public sealed class AppServices : IDisposable
         Player    = new SetlistPlayer(Metronome);
 
         // Audio (ASIO service always created; initialized lazily when driver is configured)
-        AsioService = new AsioService(new NAudioAsioOutFactory(), audioConfig);
+        AsioService = new AsioService(asioFactory ?? new NAudioAsioOutFactory(), audioConfig);
 
         // MIDI
         MidiService = new MidiService(new NAudioMidiPortFactory(), midiConfig);
