@@ -108,12 +108,24 @@ public sealed partial class SetupViewModel : ObservableObject
                 _services.InitializeAudio();
             }
 
-            _services.MetronomeAudio!.Start();
+            // Count exactly 4 beats then stop (more reliable than a fixed delay)
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            int beatCount = 0;
 
-            // 4 beats at 120 BPM = 2 seconds
-            await Task.Delay(4 * 60_000 / 120);
+            void OnBeat(int beat, int bar)
+            {
+                if (System.Threading.Interlocked.Increment(ref beatCount) >= 4)
+                    tcs.TrySetResult(true);
+            }
 
-            _services.MetronomeAudio?.Stop();
+            _services.MetronomeAudio!.Beat += OnBeat;
+            _services.MetronomeAudio.Start();
+
+            // Wait for 4 beats; 10-second hard timeout as safety net
+            await Task.WhenAny(tcs.Task, Task.Delay(10_000));
+
+            _services.MetronomeAudio.Beat -= OnBeat;
+            _services.MetronomeAudio.Stop();
         }
         catch (Exception ex)
         {
