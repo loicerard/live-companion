@@ -13,6 +13,7 @@ public static class ConfigPaths
 
     public static string AudioConfigFile => Path.Combine(BaseDir, "audio_config.json");
     public static string MidiConfigFile  => Path.Combine(BaseDir, "midi_config.json");
+    public static string LastSetlistFile => Path.Combine(BaseDir, "last_setlist.txt");
 
     public static void EnsureBaseDirectoryExists() => Directory.CreateDirectory(BaseDir);
 }

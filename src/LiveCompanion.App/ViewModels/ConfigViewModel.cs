@@ -305,6 +305,7 @@ public sealed partial class ConfigViewModel : ObservableObject
             var setlist = BuildSetlistFromTree();
             await SetlistRepository.SaveAsync(setlist, filePath);
             _setlistVm.NotifySetlistChanged(setlist);
+            _setlistVm.NotifySetlistSaved(filePath);
             _notification.ShowWarning("Setlist saved.");
         }
         catch (Exception ex)

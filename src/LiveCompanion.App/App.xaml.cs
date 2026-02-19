@@ -62,6 +62,9 @@ public partial class App : Application
         // Navigate: go to Setup if no audio/MIDI config exists yet
         bool hasConfig = !string.IsNullOrEmpty(audioConfig.AsioDriverName) && asioReady;
         navService.NavigateTo(hasConfig ? ViewKey.Setlist : ViewKey.Setup);
+
+        // Auto-restore last setlist (best-effort, non-blocking)
+        await TryRestoreLastSetlistAsync(setlist);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -86,6 +89,18 @@ public partial class App : Application
         catch { /* use defaults */ }
 
         return new AudioConfiguration();
+    }
+
+    private static async Task TryRestoreLastSetlistAsync(SetlistViewModel setlistVm)
+    {
+        try
+        {
+            if (!File.Exists(ConfigPaths.LastSetlistFile)) return;
+            var path = (await File.ReadAllTextAsync(ConfigPaths.LastSetlistFile)).Trim();
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+            await setlistVm.LoadFromPathAsync(path);
+        }
+        catch { /* non-fatal */ }
     }
 
     private static async Task<MidiConfiguration> TryLoadMidiConfigAsync()

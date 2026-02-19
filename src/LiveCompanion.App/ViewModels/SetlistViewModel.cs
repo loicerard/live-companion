@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.App.Services;
@@ -56,10 +57,19 @@ public sealed partial class SetlistViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true) return;
 
+        await LoadFromPathAsync(dialog.FileName);
+    }
+
+    /// <summary>
+    /// Loads a setlist from an explicit file path (e.g. from auto-restore on startup).
+    /// </summary>
+    public async Task LoadFromPathAsync(string filePath)
+    {
         try
         {
-            var setlist = await SetlistRepository.LoadAsync(dialog.FileName);
+            var setlist = await SetlistRepository.LoadAsync(filePath);
             LoadSetlistIntoUi(setlist);
+            SaveLastSetlistPath(filePath);
         }
         catch (Exception ex)
         {
@@ -135,5 +145,22 @@ public sealed partial class SetlistViewModel : ObservableObject
         _currentSetlist = setlist;
         SetlistName = setlist.Name;
         RefreshSongs(setlist);
+    }
+
+    public void NotifySetlistSaved(string filePath)
+    {
+        SaveLastSetlistPath(filePath);
+    }
+
+    // ── Persistence ────────────────────────────────────────────────
+
+    private static void SaveLastSetlistPath(string filePath)
+    {
+        try
+        {
+            ConfigPaths.EnsureBaseDirectoryExists();
+            File.WriteAllText(ConfigPaths.LastSetlistFile, filePath);
+        }
+        catch { /* non-fatal */ }
     }
 }
