@@ -27,11 +27,13 @@
                     <TextBlock Text="{Binding SetlistName}" FontSize="22" FontWeight="Bold" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button Content="📂  Load Setlist"
-                            Command="{Binding LoadSetlistCommand}" />
+                            Command="{Binding LoadSetlistCommand}"
+                            Margin="0,0,8,0" />
                     <Button Content="➕  New Setlist"
-                            Command="{Binding NewSetlistCommand}" />
+                            Command="{Binding NewSetlistCommand}"
+                            Margin="0,0,8,0" />
                     <Button Content="🎤  Go to Performance"
                             Style="{StaticResource AccentButtonStyle}"
                             Command="{Binding GoToPerformanceCommand}"

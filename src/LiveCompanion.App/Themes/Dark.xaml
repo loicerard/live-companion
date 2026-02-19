@@ -48,11 +48,9 @@
     </Style>
 
     <Style x:Key="LabelStyle" TargetType="TextBlock">
-        <Setter Property="Foreground"  Value="{StaticResource TextSecondaryBrush}" />
-        <Setter Property="FontSize"    Value="11" />
-        <Setter Property="FontWeight"  Value="SemiBold" />
-        <Setter Property="TextTransform" Value="Uppercase"
-                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="FontSize"   Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="MutedTextStyle" TargetType="TextBlock">
@@ -140,17 +138,19 @@
         <Setter Property="Padding"       Value="8" />
     </Style>
 
-    <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
-        <Setter Property="Background"    Value="Transparent" />
-        <Setter Property="BorderBrush"   Value="Transparent" />
+    <Style x:Key="NavButtonStyle" TargetType="Button">
+        <Setter Property="Background"      Value="Transparent" />
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush"     Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding"       Value="12,16" />
-        <Setter Property="Width"         Value="60" />
-        <Setter Property="FontSize"      Value="11" />
+        <Setter Property="Padding"         Value="12,16" />
+        <Setter Property="Width"           Value="64" />
+        <Setter Property="FontSize"        Value="11" />
+        <Setter Property="Cursor"          Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="Transparent"
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
                             BorderThickness="0"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
@@ -168,6 +168,12 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- Active variant — applied by MainWindowViewModel via DataTrigger on the sidebar -->
+    <Style x:Key="NavButtonActiveStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
+        <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}" />
+        <Setter Property="Background" Value="{StaticResource BackgroundElevatedBrush}" />
     </Style>
 
     <!-- ── TextBox ── -->

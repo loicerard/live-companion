@@ -82,6 +82,8 @@
             <!-- Right: detail panel -->
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
                           Padding="20">
+                <!-- Single child required by ScrollViewer -->
+                <StackPanel>
 
                 <!-- Song panel -->
                 <StackPanel Visibility="{Binding SelectedSong,
@@ -104,11 +106,10 @@
                     <TextBox Text="{Binding SelectedSong.DurationTicks, UpdateSourceTrigger=PropertyChanged}"
                              Margin="0,0,0,20" />
 
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="➕ Add Section"
-                                Command="{Binding AddSectionCommand}"
-                                CommandParameter="{Binding SelectedSong}" />
-                    </StackPanel>
+                    <Button Content="➕ Add Section"
+                            Command="{Binding AddSectionCommand}"
+                            CommandParameter="{Binding SelectedSong}"
+                            HorizontalAlignment="Left" />
                 </StackPanel>
 
                 <!-- Section panel -->
@@ -231,6 +232,7 @@
                     </ItemsControl>
                 </StackPanel>
 
+                </StackPanel><!-- end outer wrapper -->
             </ScrollViewer>
         </Grid>
     </Grid>

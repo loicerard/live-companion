@@ -102,13 +102,13 @@
 
             <!-- Play / Stop row -->
             <StackPanel Grid.Row="5" Orientation="Horizontal"
-                        HorizontalAlignment="Center" Margin="0,0,0,24"
-                        Spacing="16">
+                        HorizontalAlignment="Center" Margin="0,0,0,24">
                 <Button Content="▶  PLAY"
                         Style="{StaticResource AccentButtonStyle}"
                         Command="{Binding PlayCommand}"
                         IsEnabled="{Binding CanPlay}"
-                        FontSize="18" Padding="32,14" MinWidth="140" />
+                        FontSize="18" Padding="32,14" MinWidth="140"
+                        Margin="0,0,16,0" />
                 <Button Content="⏹  STOP"
                         Style="{StaticResource DangerButtonStyle}"
                         Command="{Binding StopCommand}"

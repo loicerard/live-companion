@@ -205,10 +205,10 @@
                 </GroupBox>
 
                 <GroupBox Header="MIDI Clock Targets" Margin="0,0,0,8">
-                    <StackPanel Orientation="Horizontal" Spacing="24">
-                        <CheckBox Content="Quad Cortex 1" IsChecked="{Binding ClockToQuad1}" />
-                        <CheckBox Content="Quad Cortex 2" IsChecked="{Binding ClockToQuad2}" />
-                        <CheckBox Content="Roland SSPD"  IsChecked="{Binding ClockToSspd}" />
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="Quad Cortex 1" IsChecked="{Binding ClockToQuad1}" Margin="0,0,24,0" />
+                        <CheckBox Content="Quad Cortex 2" IsChecked="{Binding ClockToQuad2}" Margin="0,0,24,0" />
+                        <CheckBox Content="Roland SSPD"   IsChecked="{Binding ClockToSspd}" />
                     </StackPanel>
                 </GroupBox>
 
