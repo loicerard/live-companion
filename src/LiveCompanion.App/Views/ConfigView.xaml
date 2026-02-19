@@ -14,13 +14,13 @@
         <Border Grid.Row="0" Background="{StaticResource BackgroundBrush}"
                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
                 Padding="16,10">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="📂  Open"   Command="{Binding LoadSetlistCommand}" />
-                <Button Content="💾  Save"   Command="{Binding SaveSetlistCommand}" />
-                <Button Content="Save As…"  Command="{Binding SaveSetlistAsCommand}" />
+            <StackPanel Orientation="Horizontal">
+                <Button Content="📂  Open"   Command="{Binding LoadSetlistCommand}" Margin="0,0,8,0" />
+                <Button Content="💾  Save"   Command="{Binding SaveSetlistCommand}" Margin="0,0,8,0" />
+                <Button Content="Save As…"  Command="{Binding SaveSetlistAsCommand}" Margin="0,0,8,0" />
                 <Separator Width="1" Background="{StaticResource BorderBrush}" Margin="8,0" />
-                <Button Content="➕ Song"    Command="{Binding AddSongCommand}" />
-                <Button Content="➕ Section" Command="{Binding AddSectionCommand}" />
+                <Button Content="➕ Song"    Command="{Binding AddSongCommand}" Margin="0,0,8,0" />
+                <Button Content="➕ Section" Command="{Binding AddSectionCommand}" Margin="0,0,8,0" />
                 <Button Content="🗑 Remove"
                         Command="{Binding RemoveSongCommand}"
                         CommandParameter="{Binding SelectedSong}"
