@@ -31,6 +31,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _services.AsioService.AudioFault  += msg => Notification.ShowError($"Audio fault: {msg}");
         _services.MidiService.MidiFault   += (port, ex) => Notification.ShowError($"MIDI fault on '{port}': {ex.Message}");
 
+        // Hide nav bar only while actively playing (not just when on the Performance view)
+        Performance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PerformanceViewModel.IsPlaying))
+                RefreshPerformanceMode();
+        };
+
         // Track navigation changes
         _nav.NavigatedTo += OnNavigatedTo;
         OnNavigatedTo(_nav.CurrentView);
@@ -91,10 +98,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _                   => Setlist,
         };
 
-        IsPerformanceMode        = view == ViewKey.Performance;
         IsNavPerformanceActive   = view == ViewKey.Performance;
         IsNavSetlistActive       = view == ViewKey.Setlist;
         IsNavConfigActive        = view == ViewKey.Config;
         IsNavSetupActive         = view == ViewKey.Setup;
+        RefreshPerformanceMode();
+    }
+
+    /// <summary>
+    /// Nav bar is hidden only when on the Performance view AND the player is actively playing.
+    /// In Idle/Stopped state the sidebar stays visible so the user can navigate away.
+    /// </summary>
+    private void RefreshPerformanceMode()
+    {
+        IsPerformanceMode = _nav.CurrentView == ViewKey.Performance && Performance.IsPlaying;
     }
 }

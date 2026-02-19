@@ -47,7 +47,7 @@ public partial class App : Application
 
         // Build ViewModels
         var notification = new NotificationViewModel(dispatcher);
-        var performance  = new PerformanceViewModel(_services, dispatcher, navService);
+        var performance  = new PerformanceViewModel(_services, dispatcher, navService, notification);
         var setlist      = new SetlistViewModel(_services, dispatcher, navService, notification);
         var config       = new ConfigViewModel(_services, navService, notification, setlist);
         var setup        = new SetupViewModel(_services, navService, notification);

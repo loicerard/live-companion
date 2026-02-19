@@ -11,11 +11,11 @@ namespace LiveCompanion.Audio.Providers;
 /// </summary>
 internal sealed class MetronomeWaveProvider : ISampleProvider
 {
-    // Click tone parameters
-    private const float StrongBeatFrequencyHz = 1000f;
-    private const float WeakBeatFrequencyHz = 800f;
-    private const float StrongBeatDurationMs = 30f;
-    private const float WeakBeatDurationMs = 20f;
+    // Click tone parameters — short percussive ticks
+    private const float StrongBeatFrequencyHz = 1200f;
+    private const float WeakBeatFrequencyHz   = 900f;
+    private const float StrongBeatDurationMs  = 8f;
+    private const float WeakBeatDurationMs    = 5f;
 
     private readonly int _ppqn;
     private readonly int _sampleRate;

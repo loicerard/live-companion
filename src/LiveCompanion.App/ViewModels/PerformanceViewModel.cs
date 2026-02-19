@@ -16,14 +16,16 @@ public sealed partial class PerformanceViewModel : ObservableObject, IDisposable
     private readonly AppServices _services;
     private readonly IDispatcher _dispatcher;
     private readonly INavigationService _nav;
+    private readonly NotificationViewModel _notification;
     private bool _subscribed;
 
     public PerformanceViewModel(AppServices services, IDispatcher dispatcher,
-                                INavigationService nav)
+                                INavigationService nav, NotificationViewModel notification)
     {
-        _services   = services;
-        _dispatcher = dispatcher;
-        _nav        = nav;
+        _services     = services;
+        _dispatcher   = dispatcher;
+        _nav          = nav;
+        _notification = notification;
         Subscribe();
     }
 
@@ -90,7 +92,16 @@ public sealed partial class PerformanceViewModel : ObservableObject, IDisposable
         if (_services.Player.State == PlayerState.Idle ||
             _services.Player.State == PlayerState.Stopped)
         {
-            _services.Player.Play();
+            try
+            {
+                _services.Player.Play();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _notification.ShowError(ex.Message);
+                return;
+            }
+
             _services.MetronomeAudio?.Start();
             _services.MidiClock?.Start();
         }
