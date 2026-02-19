@@ -1,0 +1,237 @@
+<UserControl x:Class="LiveCompanion.App.Views.ConfigView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:LiveCompanion.App.ViewModels"
+             Background="{StaticResource BackgroundDeepBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="{StaticResource BackgroundBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="📂  Open"   Command="{Binding LoadSetlistCommand}" />
+                <Button Content="💾  Save"   Command="{Binding SaveSetlistCommand}" />
+                <Button Content="Save As…"  Command="{Binding SaveSetlistAsCommand}" />
+                <Separator Width="1" Background="{StaticResource BorderBrush}" Margin="8,0" />
+                <Button Content="➕ Song"    Command="{Binding AddSongCommand}" />
+                <Button Content="➕ Section" Command="{Binding AddSectionCommand}" />
+                <Button Content="🗑 Remove"
+                        Command="{Binding RemoveSongCommand}"
+                        CommandParameter="{Binding SelectedSong}"
+                        IsEnabled="{Binding SelectedSong, Converter={StaticResource NotNullConverter}}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Two-panel layout -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" MinWidth="180" />
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: tree -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Setlist name -->
+                <Border Grid.Row="0" Padding="12,10"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <StackPanel>
+                        <TextBlock Text="SETLIST NAME" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding SetlistName, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Song/Section tree -->
+                <TreeView Grid.Row="1"
+                          ItemsSource="{Binding Songs}"
+                          SelectedItemChanged="TreeView_SelectedItemChanged"
+                          BorderThickness="0">
+                    <TreeView.ItemTemplate>
+                        <HierarchicalDataTemplate DataType="{x:Type vm:SongNodeViewModel}"
+                                                  ItemsSource="{Binding Sections}">
+                            <TextBlock Text="{Binding DisplayName}" FontSize="13"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Padding="0,2" />
+                            <HierarchicalDataTemplate.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:SectionNodeViewModel}">
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="12"
+                                               Foreground="{StaticResource TextSecondaryBrush}" Padding="0,2" />
+                                </DataTemplate>
+                            </HierarchicalDataTemplate.ItemTemplate>
+                        </HierarchicalDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+            </Grid>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="4"
+                          HorizontalAlignment="Stretch"
+                          Background="{StaticResource BorderBrush}" />
+
+            <!-- Right: detail panel -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                          Padding="20">
+
+                <!-- Song panel -->
+                <StackPanel Visibility="{Binding SelectedSong,
+                            Converter={StaticResource NotNullToVisibleConverter}}">
+                    <TextBlock Text="SONG" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,12" />
+
+                    <TextBlock Text="Title" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding SelectedSong.Title, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,12" />
+
+                    <TextBlock Text="Artist" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding SelectedSong.Artist, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,12" />
+
+                    <TextBlock Text="Duration (ticks)" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding SelectedSong.DurationTicks, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,20" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="➕ Add Section"
+                                Command="{Binding AddSectionCommand}"
+                                CommandParameter="{Binding SelectedSong}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Section panel -->
+                <StackPanel Visibility="{Binding SelectedSection,
+                            Converter={StaticResource NotNullToVisibleConverter}}">
+                    <TextBlock Text="SECTION" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,12" />
+
+                    <TextBlock Text="Section Name" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding SelectedSection.SectionName, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,12" />
+
+                    <TextBlock Text="Tick offset" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding SelectedSection.Tick, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,12" />
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="BPM" FontSize="12"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding SelectedSection.Bpm, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Time Signature" FontSize="12"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding SelectedSection.TimeSigNum, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Column="1" Text="/" FontSize="16"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextSecondaryBrush}" />
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding SelectedSection.TimeSigDen, UpdateSourceTrigger=PropertyChanged}" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- MIDI Presets -->
+                    <TextBlock Text="MIDI PRESETS" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8,0,8" />
+                    <ItemsControl ItemsSource="{Binding SelectedSection.Presets}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:MidiPresetItemViewModel}">
+                                <Border Background="{StaticResource BackgroundElevatedBrush}"
+                                        CornerRadius="4" Padding="10" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Device}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource AccentBlueBrush}" />
+                                        <StackPanel Grid.Column="1" Margin="8,0">
+                                            <TextBlock Text="Ch" FontSize="10"
+                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                            <TextBox Text="{Binding Channel, UpdateSourceTrigger=PropertyChanged}"
+                                                     Width="50" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="PC" FontSize="10"
+                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                            <TextBox Text="{Binding ProgramChange, UpdateSourceTrigger=PropertyChanged}"
+                                                     Width="50" HorizontalAlignment="Left" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Audio Cues -->
+                    <TextBlock Text="AUDIO CUES" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,12,0,8" />
+                    <ItemsControl ItemsSource="{Binding SelectedSection.AudioCues}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:AudioCueItemViewModel}">
+                                <Border Background="{StaticResource BackgroundElevatedBrush}"
+                                        CornerRadius="4" Padding="10" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Tick" FontSize="10"
+                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                            <TextBox Text="{Binding Tick, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="8,0">
+                                            <TextBlock Text="File" FontSize="10"
+                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                            <TextBox Text="{Binding FileName, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Gain dB" FontSize="10"
+                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                            <TextBox Text="{Binding GainDb, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

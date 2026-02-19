@@ -311,6 +311,66 @@ MIDI clock tests pump `MetronomeWaveProvider` frames deterministically, verifyin
 exactly 24 clock pulses are emitted per PPQN-worth of ticks (same pattern as Phase 2
 audio engine tests).
 
+## Phase 4 — WPF UI (LiveCompanion.App)
+
+### Pattern: MVVM with CommunityToolkit.Mvvm
+
+All ViewModels derive from `ObservableObject` (CommunityToolkit). Properties use `[ObservableProperty]`
+source generators; commands use `[RelayCommand]`. No logic in code-behind — XAML code-behind is
+limited to thin event bridges (e.g. TreeView selection, ListBox double-click).
+
+**ViewModel testability:** ViewModels depend on `IDispatcher` (not `System.Windows.Threading.Dispatcher`)
+so they can be instantiated and tested without a running WPF application.
+
+### Navigation
+
+```
+MainWindow
+  └── Grid
+       ├── Left sidebar (64 px, hidden in Performance mode)
+       │     4 nav buttons → NavigationService.NavigateTo(ViewKey)
+       └── ContentControl bound to MainWindowViewModel.CurrentView
+             (WPF DataTemplate resolves ViewModel type → View UserControl)
+```
+
+`NavigationService` holds the current `ViewKey` and fires `NavigatedTo`. `MainWindowViewModel`
+subscribes and sets `CurrentView` to the matching ViewModel instance. WPF's `DataTemplate` registry
+in `MainWindow.Resources` maps each ViewModel type to its corresponding `UserControl`.
+
+### Service Wiring (AppServices)
+
+```
+App.OnStartup()
+  ├── Load AudioConfiguration  (from %APPDATA%\LiveCompanion\audio_config.json)
+  ├── Load MidiConfiguration   (from %APPDATA%\LiveCompanion\midi_config.json)
+  └── AppServices
+        ├── MetronomeEngine + SetlistPlayer   (Core — Task.Delay timing)
+        ├── AsioService                       (Audio — driver lifecycle)
+        ├── MetronomeAudioEngine              (Audio — ASIO click + tick source)
+        ├── SamplePlayer                      (Audio — cue playback)
+        ├── MidiService + MidiRouter          (MIDI — preset dispatch)
+        ├── MidiClockEngine                   (MIDI — ASIO-driven clock)
+        └── MidiInputHandler                  (MIDI — footswitch actions)
+```
+
+`AppServices.InitializeAudio()` is called only when an ASIO driver is configured.
+If no config exists on first launch, the app redirects to the Setup view.
+
+### Fault Notifications
+
+`AsioService.AudioFault` and `MidiService.MidiFault` are wired in `MainWindowViewModel` to
+`NotificationViewModel.ShowError()`. The notification overlay appears as a top-edge banner
+over the content area, auto-dismissed after 5 seconds or on click.
+
+### The 4 Views
+
+| View | Key | Description |
+|------|-----|-------------|
+| Performance | `ViewKey.Performance` | Stage display: song title (72 pt), BPM (56 pt), beat ellipse flash, Play/Stop, song nav bar. Nav sidebar hidden. |
+| Setlist | `ViewKey.Setlist` | Scrollable song list with number, title, artist, BPM, estimated duration. Current song highlighted in green. |
+| Config | `ViewKey.Config` | Two-panel editor: left tree (Setlist → Songs → Sections), right detail panel for the selected node. Saves via `SetlistRepository`. |
+| Setup | `ViewKey.Setup` | ASIO driver picker, buffer size, volume sliders, MIDI port pickers per device, clock targets, input-action mapping table. |
+
 ## Project Phases
 
 | Phase | Scope                                          | Status      |
@@ -318,7 +378,7 @@ audio engine tests).
 | 1     | **Core** — Models, state machine, tick engine, JSON persistence, tests | Done |
 | 2     | **Audio ASIO** — High-precision timer via ASIO callback, sample playback on dedicated outputs, click track | Done |
 | 3     | **MIDI** — Program Change + CC routing, MIDI Clock sync via ASIO callback, MIDI input handling | Done |
-| 4     | **UI** — WPF/Avalonia interface: setlist editor, live view, emergency stop button | Planned |
+| 4     | **UI** — WPF MVVM interface: setlist editor, live stage view, hardware setup | Done |
 | 5     | **Integration SSPD** — Full Roland SSPD scene/footswitch integration | Planned |
 
 ## Directory Structure
@@ -349,6 +409,31 @@ audio engine tests).
 /src/LiveCompanion.Midi.Tests/
   Fakes/              — FakeMidiOutput, FakeMidiInput, FakeMidiPortFactory
                       — xUnit tests (config, service, router, clock engine, input handler)
+/src/LiveCompanion.App/
+  App.xaml / App.xaml.cs       — WPF application entry point; composition root
+  MainWindow.xaml / .cs         — Shell window with sidebar navigation
+  Themes/Dark.xaml              — Shared dark-mode resource dictionary (colors, brushes, styles)
+  Services/
+    IDispatcher.cs / WpfDispatcher.cs  — UI thread abstraction for ViewModel testability
+    INavigationService.cs / NavigationService.cs — View-key-based navigation service
+    ConfigPaths.cs              — %APPDATA%\LiveCompanion config file paths
+    AppServices.cs              — Composition root: wires all engine services together
+  ViewModels/
+    MainWindowViewModel.cs      — Shell: navigation state, notification wiring
+    NotificationViewModel.cs    — Non-blocking fault notification overlay (auto-dismiss 5 s)
+    PerformanceViewModel.cs     — Stage view: subscribes to SetlistPlayer events
+    SetlistViewModel.cs         — Setlist view: load/navigate songs
+    SongItemViewModel.cs        — Song row: title, artist, BPM, estimated duration
+    ConfigViewModel.cs          — Setlist/song/section editor with tree nodes
+    SetupViewModel.cs           — ASIO + MIDI hardware configuration form
+    MidiActionValues.cs         — Enum helper for ComboBox binding
+  Views/
+    PerformanceView.xaml / .cs  — Stage display (hero title, BPM, beat indicator, Play/Stop)
+    SetlistView.xaml / .cs      — Scrollable song list with double-click navigation
+    ConfigView.xaml / .cs       — Two-panel tree editor (structure + detail)
+    SetupView.xaml / .cs        — Audio driver + MIDI port setup form
+  Converters/
+    ValueConverters.cs          — NotNull, NotNullToVisible, BoolToVisible, BoolToCollapsed
 /data/setlists/       — JSON setlist files
 /data/samples/        — Audio sample files (WAV, MP3, OGG)
 /docs/                — This document
