@@ -91,14 +91,29 @@ public sealed partial class SetupViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void TestAudio()
+    private async Task TestAudio()
     {
         try
         {
-            _services.MetronomeAudio?.Start();
-            // 4 beats test — auto-stop after 4 beats
-            _ = Task.Delay(4 * 60_000 / Math.Max(1, (int)(_services.AudioConfig.MetronomeMasterVolume * 120 + 1)))
-                    .ContinueWith(_ => _services.MetronomeAudio?.Stop(), TaskScheduler.Default);
+            // Initialize ASIO on demand if it wasn't initialized at startup
+            if (_services.MetronomeAudio is null)
+            {
+                if (string.IsNullOrEmpty(SelectedAsioDriver))
+                {
+                    _notification.ShowError("Please select an ASIO driver first.");
+                    return;
+                }
+
+                _services.UpdateAudioConfig(BuildAudioConfig());
+                _services.InitializeAudio();
+            }
+
+            _services.MetronomeAudio!.Start();
+
+            // 4 beats at 120 BPM = 2 seconds
+            await Task.Delay(4 * 60_000 / 120);
+
+            _services.MetronomeAudio?.Stop();
         }
         catch (Exception ex)
         {
