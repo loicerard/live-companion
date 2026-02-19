@@ -27,25 +27,39 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <!-- Width="Auto": collapses to 0 when the sidebar Border is Collapsed -->
-            <ColumnDefinition Width="Auto" />
+            <!-- Left nav bar (hidden in performance mode) -->
+            <ColumnDefinition>
+                <ColumnDefinition.Style>
+                    <Style TargetType="ColumnDefinition">
+                        <Setter Property="Width" Value="64" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsPerformanceMode}" Value="True">
+                                <Setter Property="Width" Value="0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ColumnDefinition.Style>
+            </ColumnDefinition>
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- ── Left navigation sidebar ── -->
-        <!-- Collapsed in Performance mode; Width="Auto" column shrinks to 0 automatically -->
         <Border Grid.Column="0"
-                Width="64"
                 Background="{StaticResource BackgroundBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="0,0,1,0"
-                Visibility="{Binding IsPerformanceMode,
-                             Converter={StaticResource BoolToCollapsedConverter}}">
+                BorderThickness="0,0,1,0">
             <StackPanel VerticalAlignment="Top" Margin="0,16,0,0">
 
                 <!-- Performance -->
                 <Button Command="{Binding GoPerformanceCommand}"
                         ToolTip="Performance">
+                    <Button.Content>
+                        <StackPanel>
+                            <TextBlock Text="🎸" FontSize="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="Stage" FontSize="9" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Button.Content>
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
                             <Style.Triggers>
@@ -56,16 +70,18 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
-                    <StackPanel>
-                        <TextBlock Text="🎸" FontSize="22" HorizontalAlignment="Center" />
-                        <TextBlock Text="Stage" FontSize="9" HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
-                    </StackPanel>
                 </Button>
 
                 <!-- Setlist -->
                 <Button Command="{Binding GoSetlistCommand}"
                         ToolTip="Setlist">
+                    <Button.Content>
+                        <StackPanel>
+                            <TextBlock Text="📋" FontSize="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="Setlist" FontSize="9" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Button.Content>
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
                             <Style.Triggers>
@@ -76,16 +92,18 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
-                    <StackPanel>
-                        <TextBlock Text="📋" FontSize="22" HorizontalAlignment="Center" />
-                        <TextBlock Text="Setlist" FontSize="9" HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
-                    </StackPanel>
                 </Button>
 
                 <!-- Config -->
                 <Button Command="{Binding GoConfigCommand}"
                         ToolTip="Song Editor">
+                    <Button.Content>
+                        <StackPanel>
+                            <TextBlock Text="🎼" FontSize="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="Editor" FontSize="9" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Button.Content>
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
                             <Style.Triggers>
@@ -96,16 +114,18 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
-                    <StackPanel>
-                        <TextBlock Text="🎼" FontSize="22" HorizontalAlignment="Center" />
-                        <TextBlock Text="Editor" FontSize="9" HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
-                    </StackPanel>
                 </Button>
 
                 <!-- Setup -->
                 <Button Command="{Binding GoSetupCommand}"
                         ToolTip="Hardware Setup">
+                    <Button.Content>
+                        <StackPanel>
+                            <TextBlock Text="⚙️" FontSize="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="Setup" FontSize="9" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Button.Content>
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
                             <Style.Triggers>
@@ -116,11 +136,6 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
-                    <StackPanel>
-                        <TextBlock Text="⚙️" FontSize="22" HorizontalAlignment="Center" />
-                        <TextBlock Text="Setup" FontSize="9" HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
-                    </StackPanel>
                 </Button>
 
             </StackPanel>

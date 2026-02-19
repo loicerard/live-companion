@@ -86,7 +86,7 @@ public sealed class SetlistPlayer
     /// Synchronous, non-timed tick-by-tick driver for testing.
     /// Plays the entire setlist dispatching events at each tick without any delay.
     /// </summary>
-    internal void PlaySynchronous()
+    public void PlaySynchronous()
     {
         if (_setlist is null || _setlist.Songs.Count == 0)
             throw new InvalidOperationException("No setlist loaded.");

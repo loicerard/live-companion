@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using LiveCompanion.App.ViewModels;
 
