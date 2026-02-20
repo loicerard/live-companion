@@ -114,6 +114,10 @@ public sealed partial class SetlistViewModel : ObservableObject
             _services.Player.Load(setlist);
         }
 
+        // Bug 2: pre-load audio samples so they are ready at performance time.
+        // Relative file names in AudioCueEvent are resolved against SamplesDirectory.
+        _services.SamplePlayer?.LoadSetlistSamples(setlist, ConfigPaths.SamplesDirectory);
+
         RefreshSongs(setlist);
         HasSetlist = true;
     }
