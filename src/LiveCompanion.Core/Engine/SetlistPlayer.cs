@@ -11,6 +11,7 @@ public sealed class SetlistPlayer
     private readonly MetronomeEngine _metronome;
     private Setlist? _setlist;
     private int _songIndex;
+    private int _currentBpm = 120;   // updated on every SectionChangeEvent dispatch
     private CancellationTokenSource? _cts;
     private Task? _playbackLoop;
 
@@ -189,13 +190,15 @@ public sealed class SetlistPlayer
     {
         _metronome.Reset();
 
-        // Apply initial section if the first event is at tick 0
+        // Apply initial section and seed _currentBpm so the playback loop
+        // uses the correct BPM from tick 0 (fixes the hardcoded-120 bug).
         var firstSection = song.Events
             .OfType<SectionChangeEvent>()
             .OrderBy(e => e.Tick)
             .FirstOrDefault();
         if (firstSection is not null)
         {
+            _currentBpm = firstSection.Bpm;
             _metronome.ChangeTempo(firstSection.Bpm, firstSection.TimeSignature);
         }
 
@@ -223,6 +226,7 @@ public sealed class SetlistPlayer
         switch (evt)
         {
             case SectionChangeEvent section:
+                _currentBpm = section.Bpm;   // keep timing loop in sync
                 _metronome.ChangeTempo(section.Bpm, section.TimeSignature);
                 SectionChanged?.Invoke(section);
                 foreach (var preset in section.Presets)
@@ -237,11 +241,7 @@ public sealed class SetlistPlayer
         }
     }
 
-    private int _getCurrentBpm()
-    {
-        // Fallback BPM if no section has been dispatched yet
-        return 120;
-    }
+    private int _getCurrentBpm() => _currentBpm;
 
     private void OnBeat(int beat, int bar)
     {

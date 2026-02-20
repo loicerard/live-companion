@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LiveCompanion.Core.Models;
 using NAudio.Wave;
 
@@ -11,11 +12,12 @@ namespace LiveCompanion.Audio.Providers;
 /// </summary>
 internal sealed class MetronomeWaveProvider : ISampleProvider
 {
-    // Click tone parameters
+    // Click tone parameters — bursts must stay within 10–20 ms so they are
+    // heard as discrete clicks and never bleed into a continuous tone.
     private const float StrongBeatFrequencyHz = 1000f;
-    private const float WeakBeatFrequencyHz = 800f;
-    private const float StrongBeatDurationMs = 30f;
-    private const float WeakBeatDurationMs = 20f;
+    private const float WeakBeatFrequencyHz   = 800f;
+    private const float StrongBeatDurationMs  = 15f;   // was 30 ms — reduced to ≤20 ms spec
+    private const float WeakBeatDurationMs    = 10f;   // was 20 ms — reduced to 10 ms
 
     private readonly int _ppqn;
     private readonly int _sampleRate;
@@ -36,6 +38,7 @@ internal sealed class MetronomeWaveProvider : ISampleProvider
     private float _currentClickFrequency;
     private int _clickSamplesRemaining;
     private int _clickSampleIndex;
+    private int _clickTotalSamples;    // full duration of the current burst (for envelope)
 
     public MetronomeWaveProvider(int sampleRate, int ppqn, int initialBpm,
         float masterVolume, float strongBeatVolume, float weakBeatVolume)
@@ -78,6 +81,7 @@ internal sealed class MetronomeWaveProvider : ISampleProvider
             _sampleAccumulator = 0;
             _clickSamplesRemaining = 0;
             _clickSampleIndex = 0;
+            _clickTotalSamples = 0;
         }
     }
 
@@ -97,6 +101,7 @@ internal sealed class MetronomeWaveProvider : ISampleProvider
             _sampleAccumulator = 0;
             _clickSamplesRemaining = 0;
             _clickSampleIndex = 0;
+            _clickTotalSamples = 0;
         }
     }
 
@@ -190,14 +195,19 @@ internal sealed class MetronomeWaveProvider : ISampleProvider
                     float durationMs = isStrongBeat ? StrongBeatDurationMs : WeakBeatDurationMs;
                     float beatVolume = isStrongBeat ? strongVol : weakVol;
 
+                    int burstSamples = (int)(sampleRate * durationMs / 1000f);
                     lock (_lock)
                     {
                         _currentClickFrequency = freq;
-                        _clickSamplesRemaining = (int)(sampleRate * durationMs / 1000f);
+                        _clickSamplesRemaining = burstSamples;
+                        _clickTotalSamples     = burstSamples;
                         _clickSampleIndex = 0;
-                        // Store the beat volume in the frequency field is messy;
-                        // instead we'll compute inline using the current volumes.
                     }
+
+                    // Log the exact burst duration for diagnostics (Bug 1)
+                    Debug.WriteLine(
+                        $"[Metronome] Beat {beat} bar {bar} — {(isStrongBeat ? "STRONG" : "weak")} " +
+                        $"burst {durationMs:F0} ms = {burstSamples} samples @ {sampleRate} Hz");
 
                     Beat?.Invoke(beat, bar);
                 }
@@ -220,8 +230,14 @@ internal sealed class MetronomeWaveProvider : ISampleProvider
                 bool isStrong = Math.Abs(clickFreq - StrongBeatFrequencyHz) < 1f;
                 float beatVol = isStrong ? strongVol : weakVol;
 
-                // Generate sine wave with envelope (simple linear fade-out)
-                float envelope = (float)clickRemaining / (sampleRate * (isStrong ? StrongBeatDurationMs : WeakBeatDurationMs) / 1000f);
+                int totalSamples;
+                lock (_lock) { totalSamples = _clickTotalSamples; }
+
+                // Linear fade-out envelope using the stored total burst length
+                // (avoids re-computing the duration constant on every sample)
+                float envelope = totalSamples > 0
+                    ? (float)clickRemaining / totalSamples
+                    : 0f;
                 sample = MathF.Sin(2f * MathF.PI * clickFreq * clickIdx / sampleRate)
                          * envelope * masterVol * beatVol;
 

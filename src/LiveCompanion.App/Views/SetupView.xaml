@@ -1,0 +1,125 @@
+<UserControl x:Class="LiveCompanion.App.Views.SetupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+
+            <!-- Driver ASIO -->
+            <GroupBox Header="Driver ASIO" Margin="0,0,0,12">
+                <Grid Margin="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0" Grid.Column="0" Content="Driver :"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1"
+                              ItemsSource="{Binding AvailableDrivers}"
+                              SelectedItem="{Binding SelectedDriver}"
+                              Margin="4,2"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Taille de buffer :"/>
+                    <TextBox Grid.Row="1" Grid.Column="1"
+                             Text="{Binding BufferSize, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Sample rate (Hz) :"/>
+                    <TextBox Grid.Row="2" Grid.Column="1"
+                             Text="{Binding SampleRate, UpdateSourceTrigger=PropertyChanged}"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- Routing canaux -->
+            <GroupBox Header="Routing des canaux ASIO" Margin="0,0,0,12">
+                <Grid Margin="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0" Grid.Column="0" Content="Canal métronome (0-based) :"/>
+                    <TextBox Grid.Row="0" Grid.Column="1"
+                             Text="{Binding MetronomeChannelOffset, UpdateSourceTrigger=PropertyChanged}"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Canal samples (0-based) :"/>
+                    <TextBox Grid.Row="1" Grid.Column="1"
+                             Text="{Binding SampleChannelOffset, UpdateSourceTrigger=PropertyChanged}"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- Volumes -->
+            <GroupBox Header="Volumes du métronome" Margin="0,0,0,12">
+                <Grid Margin="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="50"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0" Grid.Column="0" Content="Volume maître :"/>
+                    <Slider Grid.Row="0" Grid.Column="1"
+                            Minimum="0" Maximum="1" TickFrequency="0.05"
+                            Value="{Binding MasterVolume}" Margin="4,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="2"
+                               Text="{Binding MasterVolume, StringFormat={}{0:P0}}"
+                               VerticalAlignment="Center"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Temps fort :"/>
+                    <Slider Grid.Row="1" Grid.Column="1"
+                            Minimum="0" Maximum="1" TickFrequency="0.05"
+                            Value="{Binding StrongBeatVolume}" Margin="4,2"/>
+                    <TextBlock Grid.Row="1" Grid.Column="2"
+                               Text="{Binding StrongBeatVolume, StringFormat={}{0:P0}}"
+                               VerticalAlignment="Center"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Temps faible :"/>
+                    <Slider Grid.Row="2" Grid.Column="1"
+                            Minimum="0" Maximum="1" TickFrequency="0.05"
+                            Value="{Binding WeakBeatVolume}" Margin="4,2"/>
+                    <TextBlock Grid.Row="2" Grid.Column="2"
+                               Text="{Binding WeakBeatVolume, StringFormat={}{0:P0}}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- Test Beat — Bug 1 -->
+            <GroupBox Header="Test Beat" Margin="0,0,0,12">
+                <StackPanel Margin="8">
+                    <TextBlock Text="Joue exactement 4 beats via ASIO puis s'arrête automatiquement."
+                               Margin="0,0,0,8" Foreground="Gray"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Label Content="BPM de test :"/>
+                        <TextBox Width="60"
+                                 Text="{Binding TestBpm, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Content="▶ Test Beat"
+                                Command="{Binding TestBeatCommand}"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Margin="0,8,0,0" FontStyle="Italic"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- Actions -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="💾 Sauvegarder la configuration"
+                        Command="{Binding SaveConfigCommand}"
+                        Padding="12,6"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

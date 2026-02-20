@@ -1,0 +1,124 @@
+<UserControl x:Class="LiveCompanion.App.Views.ConfigView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <ToolBar Grid.Row="0">
+            <Button Content="📂 Ouvrir setlist" Command="{Binding OpenSetlistCommand}"/>
+            <Button Content="💾 Sauvegarder" Command="{Binding SaveSetlistCommand}"/>
+            <Separator/>
+            <Label Content="Nom :"/>
+            <TextBox Width="200" Text="{Binding SetlistName, UpdateSourceTrigger=PropertyChanged}"/>
+        </ToolBar>
+
+        <!-- Main content: song list (left) + section detail (right) -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Song → Section tree -->
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Morceaux" FontWeight="Bold"
+                           Margin="8,8,8,4"/>
+                <ListBox ItemsSource="{Binding Songs}"
+                         SelectedItem="{Binding SelectedSong}"
+                         DisplayMemberPath="Title"
+                         Margin="4"/>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"/>
+
+            <!-- Section list + AudioCue editor -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="160"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Sections" FontWeight="Bold" Margin="8,8,8,4"/>
+
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding SelectedSong.Sections}"
+                         SelectedItem="{Binding SelectedSection}"
+                         Margin="4">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding SectionName}" FontWeight="SemiBold" Width="140"/>
+                                <TextBlock Text="{Binding Bpm, StringFormat={}{0} BPM}" Foreground="Gray"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch"/>
+
+                <!-- AudioCues for the selected section — Bug 2 -->
+                <DockPanel Grid.Row="3">
+                    <TextBlock DockPanel.Dock="Top" Text="AudioCues" FontWeight="Bold" Margin="8,8,8,4"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding SelectedSection.AudioCues}" Margin="4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#DDD" BorderThickness="1"
+                                            CornerRadius="4" Margin="0,4" Padding="8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <Label Grid.Row="0" Grid.Column="0" Content="Fichier :"/>
+                                            <!-- Bug 2: relative file name, resolved to AppData/samples/ -->
+                                            <TextBox Grid.Row="0" Grid.Column="1"
+                                                     Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsReadOnly="True"/>
+                                            <!-- Bug 2: Browse → OpenFileDialog → copy to AppData\samples\ -->
+                                            <Button Grid.Row="0" Grid.Column="2"
+                                                    Content="Parcourir…"
+                                                    Command="{Binding BrowseCommand}"/>
+                                            <!-- Bug 2: Preview → WaveOutEvent (no ASIO needed) -->
+                                            <Button Grid.Row="0" Grid.Column="3"
+                                                    Content="▶ Écouter"
+                                                    Command="{Binding PreviewCommand}"/>
+
+                                            <Label Grid.Row="1" Grid.Column="0" Content="Gain (dB) :"/>
+                                            <TextBox Grid.Row="1" Grid.Column="1"
+                                                     Text="{Binding GainDb, UpdateSourceTrigger=PropertyChanged}"
+                                                     Width="80" HorizontalAlignment="Left"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Grid>
+        </Grid>
+
+        <!-- Status bar -->
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</UserControl>

@@ -1,0 +1,92 @@
+<UserControl x:Class="LiveCompanion.App.Views.LiveView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Transport controls -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+            <Button Content="▶ Play"
+                    Command="{Binding PlayCommand}"
+                    FontSize="18" Padding="24,10"
+                    Background="#27AE60" Foreground="White"/>
+            <Button Content="■ Stop"
+                    Command="{Binding StopCommand}"
+                    FontSize="18" Padding="24,10"
+                    Background="#E74C3C" Foreground="White"/>
+        </StackPanel>
+
+        <!-- Live status display -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Song -->
+            <Border Grid.Column="0" BorderBrush="#BDC3C7" BorderThickness="1"
+                    CornerRadius="6" Padding="12" Margin="4">
+                <StackPanel>
+                    <TextBlock Text="MORCEAU" FontSize="10" Foreground="Gray" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding CurrentSong}" FontSize="16" FontWeight="Bold"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Section -->
+            <Border Grid.Column="1" BorderBrush="#BDC3C7" BorderThickness="1"
+                    CornerRadius="6" Padding="12" Margin="4">
+                <StackPanel>
+                    <TextBlock Text="SECTION" FontSize="10" Foreground="Gray" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding CurrentSectionName}" FontSize="16" FontWeight="Bold"/>
+                </StackPanel>
+            </Border>
+
+            <!-- BPM -->
+            <Border Grid.Column="2" BorderBrush="#BDC3C7" BorderThickness="1"
+                    CornerRadius="6" Padding="12" Margin="4">
+                <StackPanel>
+                    <TextBlock Text="BPM" FontSize="10" Foreground="Gray" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding CurrentBpm}" FontSize="32" FontWeight="Bold"
+                               Foreground="#2980B9"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Beat / Bar -->
+            <Border Grid.Column="3" BorderBrush="#BDC3C7" BorderThickness="1"
+                    CornerRadius="6" Padding="12" Margin="4">
+                <StackPanel>
+                    <TextBlock Text="BEAT / BAR" FontSize="10" Foreground="Gray" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding CurrentBeat}" FontSize="32" FontWeight="Bold"
+                                   Foreground="#8E44AD"/>
+                        <TextBlock Text=" / " FontSize="32"/>
+                        <TextBlock Text="{Binding CurrentBar}" FontSize="32"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Debug log (Bug 3 — traces for tick/ASIO/section diagnostics) -->
+        <GroupBox Grid.Row="2" Header="Journal de diagnostic">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          x:Name="LogScroller">
+                <TextBox Text="{Binding LogOutput, Mode=OneWay}"
+                         FontFamily="Consolas" FontSize="11"
+                         IsReadOnly="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         Background="#1E1E1E" Foreground="#DCDCDC"
+                         BorderThickness="0"/>
+            </ScrollViewer>
+        </GroupBox>
+    </Grid>
+</UserControl>
