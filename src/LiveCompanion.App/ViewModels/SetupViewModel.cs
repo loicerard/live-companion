@@ -1,46 +1,49 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Windows;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.App.Services;
 using LiveCompanion.Audio;
-using LiveCompanion.Audio.Abstractions;
+using LiveCompanion.Core.Models;
+using LiveCompanion.Midi;
 
 namespace LiveCompanion.App.ViewModels;
 
 /// <summary>
-/// ViewModel for the Setup view.
-/// Handles ASIO driver selection, volume configuration, and the Test Beat feature.
+/// ViewModel for the MIDI / Audio hardware setup view.
 /// </summary>
-public partial class SetupViewModel : ObservableObject
+public sealed partial class SetupViewModel : ObservableObject
 {
-    // ── Bug 1: Test Beat state ───────────────────────────────────────────
-    // The Test Beat must produce short discrete clicks (≤20 ms bursts from
-    // MetronomeWaveProvider), play exactly 4 beats, then stop automatically.
-    private const int TestBeatCount = 4;
+    private readonly AppServices _services;
+    private readonly INavigationService _nav;
+    private readonly NotificationViewModel _notification;
 
-    private AsioService? _testAsioService;
-    private MetronomeAudioEngine? _testMetronome;
+    public SetupViewModel(AppServices services, INavigationService nav,
+                          NotificationViewModel notification)
+    {
+        _services     = services;
+        _nav          = nav;
+        _notification = notification;
 
-    // ── Bindable properties ──────────────────────────────────────────────
+        LoadFromConfig();
+        RefreshPortLists();
+    }
+
+    // ── Audio section ──────────────────────────────────────────────
+
+    public ObservableCollection<string> AsioDrivers { get; } = [];
 
     [ObservableProperty]
-    private ObservableCollection<string> _availableDrivers = [];
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(TestBeatCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SaveConfigCommand))]
-    private string _selectedDriver = string.Empty;
-
-    [ObservableProperty]
-    private int _sampleRate = AudioConfiguration.DefaultSampleRate;
+    private string? _selectedAsioDriver;
 
     [ObservableProperty]
     private int _bufferSize = AudioConfiguration.DefaultBufferSize;
 
     [ObservableProperty]
-    private int _testBpm = 120;
+    private int _metronomeChannel = AudioConfiguration.DefaultMetronomeChannel;
+
+    [ObservableProperty]
+    private int _sampleChannel = AudioConfiguration.DefaultSampleChannel;
 
     [ObservableProperty]
     private float _masterVolume = AudioConfiguration.DefaultMasterVolume;
@@ -51,180 +54,239 @@ public partial class SetupViewModel : ObservableObject
     [ObservableProperty]
     private float _weakBeatVolume = AudioConfiguration.DefaultWeakBeatVolume;
 
-    [ObservableProperty]
-    private int _metronomeChannelOffset = AudioConfiguration.DefaultMetronomeChannel;
+    // ── MIDI section ───────────────────────────────────────────────
 
-    [ObservableProperty]
-    private int _sampleChannelOffset = AudioConfiguration.DefaultSampleChannel;
+    public ObservableCollection<string> MidiOutputPorts { get; } = [];
+    public ObservableCollection<string> MidiInputPorts  { get; } = [];
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(TestBeatCommand))]
-    private bool _isTestBeatRunning;
+    // Quad1
+    [ObservableProperty] private string? _quad1PortName;
+    [ObservableProperty] private int     _quad1Channel;
 
-    [ObservableProperty]
-    private string _statusMessage = "Prêt.";
+    // Quad2
+    [ObservableProperty] private string? _quad2PortName;
+    [ObservableProperty] private int     _quad2Channel;
 
-    // ── Constructor ──────────────────────────────────────────────────────
+    // SSPD
+    [ObservableProperty] private string? _sspdPortName;
+    [ObservableProperty] private int     _sspdChannel;
 
-    public SetupViewModel()
+    // MIDI IN
+    [ObservableProperty] private string? _midiInputPort;
+
+    // MIDI Clock targets
+    [ObservableProperty] private bool _clockToQuad1 = true;
+    [ObservableProperty] private bool _clockToQuad2 = true;
+    [ObservableProperty] private bool _clockToSspd;
+
+    // MIDI Input mappings
+    public ObservableCollection<MidiMappingItemViewModel> InputMappings { get; } = [];
+
+    // ── Commands ───────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void RefreshPorts()
     {
-        LoadAvailableDrivers();
-        _ = TryLoadConfigAsync();
+        RefreshPortLists();
     }
 
-    // ── Commands ─────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Bug 1 — Test Beat:
-    /// Plays exactly <see cref="TestBeatCount"/> beats via ASIO and then stops
-    /// automatically. The click bursts are 15 ms (strong) / 10 ms (weak) as
-    /// fixed in <see cref="LiveCompanion.Audio.Providers.MetronomeWaveProvider"/>.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanTestBeat))]
-    private async Task TestBeatAsync()
+    [RelayCommand]
+    private async Task TestAudio()
     {
-        IsTestBeatRunning = true;
-        StatusMessage = $"Test Beat — 0 / {TestBeatCount} beats…";
-
         try
         {
-            var config = BuildConfig();
-
-            // Tear down any leftover test session
-            StopTestSession();
-
-            _testAsioService = new AsioService(new NAudioAsioOutFactory(), config);
-            _testAsioService.Initialize();
-
-            // Bug 3 diagnostic: confirm ASIO initialized
-            Debug.WriteLine("[TestBeat] ASIO initialized successfully.");
-
-            _testMetronome = new MetronomeAudioEngine(
-                _testAsioService, config, ppqn: 480, initialBpm: TestBpm);
-
-            int beatsHeard = 0;
-            var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            _testMetronome.Beat += (beat, bar) =>
+            // Initialize ASIO on demand if it wasn't initialized at startup
+            if (_services.MetronomeAudio is null)
             {
-                beatsHeard++;
-                Debug.WriteLine($"[TestBeat] Beat {beatsHeard}/{TestBeatCount} (beat={beat} bar={bar})");
-
-                Application.Current.Dispatcher.InvokeAsync(() =>
-                    StatusMessage = $"Test Beat — {beatsHeard} / {TestBeatCount} beats…");
-
-                if (beatsHeard >= TestBeatCount)
+                if (string.IsNullOrEmpty(SelectedAsioDriver))
                 {
-                    // Stop from within the ASIO callback — MetronomeWaveProvider
-                    // will output silence on the very next buffer.
-                    _testMetronome?.Stop();
-                    done.TrySetResult();
+                    _notification.ShowError("Please select an ASIO driver first.");
+                    return;
                 }
-            };
 
-            _testMetronome.Start();
-            _testAsioService.Play();
-            Debug.WriteLine("[TestBeat] ASIO Play() called — callback running.");
+                _services.UpdateAudioConfig(BuildAudioConfig());
+                _services.InitializeAudio();
+            }
 
-            // Wait for 4 beats (or a 10 s safety timeout)
-            await done.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            // Count exactly 4 beats then stop (more reliable than a fixed delay)
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            int beatCount = 0;
+
+            void OnBeat(int beat, int bar)
+            {
+                if (System.Threading.Interlocked.Increment(ref beatCount) >= 4)
+                    tcs.TrySetResult(true);
+            }
+
+            _services.MetronomeAudio!.Beat += OnBeat;
+            _services.MetronomeAudio.Start();
+
+            // Wait for 4 beats; 10-second hard timeout as safety net
+            await Task.WhenAny(tcs.Task, Task.Delay(10_000));
+
+            _services.MetronomeAudio.Beat -= OnBeat;
+            _services.MetronomeAudio.Stop();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[TestBeat] Error: {ex}");
-            StatusMessage = $"Erreur Test Beat : {ex.Message}";
-        }
-        finally
-        {
-            StopTestSession();
-            IsTestBeatRunning = false;
-            StatusMessage = "Test Beat terminé.";
+            _notification.ShowError($"Audio test failed: {ex.Message}");
         }
     }
 
-    private bool CanTestBeat() => !string.IsNullOrEmpty(SelectedDriver) && !IsTestBeatRunning;
-
-    [RelayCommand(CanExecute = nameof(CanSaveConfig))]
-    private async Task SaveConfigAsync()
+    [RelayCommand]
+    private async Task Save()
     {
         try
         {
-            var config = BuildConfig();
-            await AudioConfiguration.SaveAsync(config, AppPathService.AudioConfigPath);
-            StatusMessage = "Configuration sauvegardée.";
+            var audioConfig = BuildAudioConfig();
+            var midiConfig  = BuildMidiConfig();
+
+            ConfigPaths.EnsureBaseDirectoryExists();
+            await AudioConfiguration.SaveAsync(audioConfig, ConfigPaths.AudioConfigFile);
+            await SaveMidiConfigAsync(midiConfig, ConfigPaths.MidiConfigFile);
+
+            _services.UpdateAudioConfig(audioConfig);
+            _services.UpdateMidiConfig(midiConfig);
+
+            _notification.ShowWarning("Configuration saved.");
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Erreur sauvegarde : {ex.Message}";
+            _notification.ShowError($"Failed to save config: {ex.Message}");
         }
     }
 
-    private bool CanSaveConfig() => !string.IsNullOrEmpty(SelectedDriver);
-
-    // ── Helpers ──────────────────────────────────────────────────────────
-
-    private void LoadAvailableDrivers()
+    [RelayCommand]
+    private void AddMidiMapping()
     {
-        try
-        {
-            // Use a temporary factory just to enumerate drivers; no ASIO init yet.
-            var factory = new NAudioAsioOutFactory();
-            var drivers = factory.GetDriverNames();
-            AvailableDrivers = new ObservableCollection<string>(drivers);
-
-            if (AvailableDrivers.Count > 0)
-                SelectedDriver = AvailableDrivers[0];
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[Setup] Driver enumeration failed: {ex.Message}");
-            StatusMessage = $"Impossible de lister les drivers ASIO : {ex.Message}";
-        }
+        InputMappings.Add(new MidiMappingItemViewModel());
     }
 
-    private async Task TryLoadConfigAsync()
+    [RelayCommand]
+    private void RemoveMidiMapping(MidiMappingItemViewModel? item)
     {
-        if (!File.Exists(AppPathService.AudioConfigPath))
-            return;
-
-        try
-        {
-            var config = await AudioConfiguration.LoadAsync(AppPathService.AudioConfigPath);
-            SelectedDriver         = config.AsioDriverName ?? SelectedDriver;
-            SampleRate             = config.SampleRate;
-            BufferSize             = config.BufferSize;
-            MasterVolume           = config.MetronomeMasterVolume;
-            StrongBeatVolume       = config.StrongBeatVolume;
-            WeakBeatVolume         = config.WeakBeatVolume;
-            MetronomeChannelOffset = config.MetronomeChannelOffset;
-            SampleChannelOffset    = config.SampleChannelOffset;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[Setup] Config load failed: {ex.Message}");
-        }
+        if (item is not null) InputMappings.Remove(item);
     }
 
-    private AudioConfiguration BuildConfig() => new()
+    // ── Helpers ────────────────────────────────────────────────────
+
+    private void LoadFromConfig()
     {
-        AsioDriverName         = SelectedDriver,
-        SampleRate             = SampleRate,
-        BufferSize             = BufferSize,
-        MetronomeMasterVolume  = MasterVolume,
-        StrongBeatVolume       = StrongBeatVolume,
-        WeakBeatVolume         = WeakBeatVolume,
-        MetronomeChannelOffset = MetronomeChannelOffset,
-        SampleChannelOffset    = SampleChannelOffset,
-        AutoReconnect          = true,
-        ReconnectDelayMs       = 2000,
+        var a = _services.AudioConfig;
+        SelectedAsioDriver  = a.AsioDriverName;
+        BufferSize          = a.BufferSize;
+        MetronomeChannel    = a.MetronomeChannelOffset;
+        SampleChannel       = a.SampleChannelOffset;
+        MasterVolume        = a.MetronomeMasterVolume;
+        StrongBeatVolume    = a.StrongBeatVolume;
+        WeakBeatVolume      = a.WeakBeatVolume;
+
+        var m = _services.MidiConfig;
+        if (m.OutputDevices.TryGetValue(DeviceTarget.Quad1, out var q1))
+        { Quad1PortName = q1.PortName; Quad1Channel = q1.Channel; }
+        if (m.OutputDevices.TryGetValue(DeviceTarget.Quad2, out var q2))
+        { Quad2PortName = q2.PortName; Quad2Channel = q2.Channel; }
+        if (m.OutputDevices.TryGetValue(DeviceTarget.SSPD, out var sp))
+        { SspdPortName = sp.PortName; SspdChannel = sp.Channel; }
+
+        MidiInputPort = m.MidiInputPortName;
+        ClockToQuad1  = m.ClockTargets.Contains(DeviceTarget.Quad1);
+        ClockToQuad2  = m.ClockTargets.Contains(DeviceTarget.Quad2);
+        ClockToSspd   = m.ClockTargets.Contains(DeviceTarget.SSPD);
+
+        foreach (var mapping in m.InputMappings)
+            InputMappings.Add(new MidiMappingItemViewModel(mapping));
+    }
+
+    private void RefreshPortLists()
+    {
+        AsioDrivers.Clear();
+        foreach (var d in _services.AsioService.GetAvailableDrivers())
+            AsioDrivers.Add(d);
+
+        MidiOutputPorts.Clear();
+        MidiInputPorts.Clear();
+        foreach (var p in _services.MidiService.GetOutputPortNames())
+            MidiOutputPorts.Add(p);
+        foreach (var p in _services.MidiService.GetInputPortNames())
+            MidiInputPorts.Add(p);
+    }
+
+    private AudioConfiguration BuildAudioConfig() => new()
+    {
+        AsioDriverName        = SelectedAsioDriver,
+        BufferSize            = BufferSize,
+        MetronomeChannelOffset = MetronomeChannel,
+        SampleChannelOffset   = SampleChannel,
+        MetronomeMasterVolume = MasterVolume,
+        StrongBeatVolume      = StrongBeatVolume,
+        WeakBeatVolume        = WeakBeatVolume,
+        AutoReconnect         = true,
     };
 
-    private void StopTestSession()
+    private MidiConfiguration BuildMidiConfig() => new()
     {
-        try { _testMetronome?.Stop(); } catch { /* ignore */ }
-        try { _testAsioService?.Stop(); } catch { /* ignore */ }
-        try { _testAsioService?.Dispose(); } catch { /* ignore */ }
-        _testMetronome = null;
-        _testAsioService = null;
+        OutputDevices = new Dictionary<DeviceTarget, DeviceOutputConfig>
+        {
+            [DeviceTarget.Quad1] = new() { PortName = Quad1PortName ?? string.Empty, Channel = Quad1Channel },
+            [DeviceTarget.Quad2] = new() { PortName = Quad2PortName ?? string.Empty, Channel = Quad2Channel },
+            [DeviceTarget.SSPD]  = new() { PortName = SspdPortName  ?? string.Empty, Channel = SspdChannel  },
+        },
+        MidiInputPortName = MidiInputPort,
+        ClockTargets = BuildClockTargets(),
+        InputMappings = InputMappings.Select(m => m.ToModel()).ToList(),
+    };
+
+    private List<DeviceTarget> BuildClockTargets()
+    {
+        var targets = new List<DeviceTarget>();
+        if (ClockToQuad1) targets.Add(DeviceTarget.Quad1);
+        if (ClockToQuad2) targets.Add(DeviceTarget.Quad2);
+        if (ClockToSspd)  targets.Add(DeviceTarget.SSPD);
+        return targets;
     }
+
+    private static async Task SaveMidiConfigAsync(MidiConfiguration config, string filePath)
+    {
+        var dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(config, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+        });
+        await File.WriteAllTextAsync(filePath, json);
+    }
+}
+
+/// <summary>View model for a single MIDI input mapping row.</summary>
+public sealed partial class MidiMappingItemViewModel : ObservableObject
+{
+    public MidiMappingItemViewModel() { }
+
+    public MidiMappingItemViewModel(MidiInputMapping model)
+    {
+        _statusType = model.StatusType;
+        _channel    = model.Channel;
+        _data1      = model.Data1;
+        _data2      = model.Data2;
+        _action     = model.Action;
+    }
+
+    [ObservableProperty] private byte       _statusType;
+    [ObservableProperty] private int        _channel   = -1;
+    [ObservableProperty] private int        _data1     = -1;
+    [ObservableProperty] private int        _data2     = -1;
+    [ObservableProperty] private MidiAction _action;
+
+    public MidiInputMapping ToModel() => new()
+    {
+        StatusType = StatusType,
+        Channel    = Channel,
+        Data1      = Data1,
+        Data2      = Data2,
+        Action     = Action,
+    };
 }

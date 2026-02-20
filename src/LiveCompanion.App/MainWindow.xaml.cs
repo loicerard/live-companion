@@ -5,18 +5,9 @@ namespace LiveCompanion.App;
 
 public partial class MainWindow : Window
 {
-    private readonly MainViewModel _vm;
-
-    public MainWindow()
+    public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
-        _vm = new MainViewModel();
-        DataContext = _vm;
-    }
-
-    protected override void OnClosed(EventArgs e)
-    {
-        _vm.Dispose();
-        base.OnClosed(e);
+        DataContext = viewModel;
     }
 }
