@@ -8,6 +8,22 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private ViewModelBase _currentView;
 
+    [ObservableProperty]
+    private string _activeSection = "Live";
+
+    partial void OnActiveSectionChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsLiveActive));
+        OnPropertyChanged(nameof(IsEditorActive));
+        OnPropertyChanged(nameof(IsLibraryActive));
+        OnPropertyChanged(nameof(IsConfigActive));
+    }
+
+    public bool IsLiveActive => _activeSection == "Live";
+    public bool IsEditorActive => _activeSection == "Editor";
+    public bool IsLibraryActive => _activeSection == "Library";
+    public bool IsConfigActive => _activeSection == "Config";
+
     public MainViewModel()
     {
         _currentView = new LiveViewModel();
@@ -24,5 +40,6 @@ public partial class MainViewModel : ViewModelBase
             "Config" => new ConfigViewModel(),
             _ => CurrentView
         };
+        ActiveSection = destination;
     }
 }
