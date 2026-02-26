@@ -1,12 +1,283 @@
 <UserControl x:Class="LiveCompanion.UI.Views.ConfigView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid>
-        <TextBlock Text="Config"
-                   FontSize="32"
-                   FontWeight="Bold"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   Foreground="#888" />
-    </Grid>
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#181825">
+
+    <UserControl.Resources>
+        <!-- Style carte -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1E1E2E" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="20,16" />
+            <Setter Property="Margin" Value="0,6" />
+        </Style>
+
+        <!-- Style label -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#6C7086" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <!-- Style label champ -->
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#A6ADC8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+
+        <!-- Style ComboBox -->
+        <Style x:Key="ConfigComboStyle" TargetType="ComboBox">
+            <Setter Property="MinWidth" Value="200" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+
+        <!-- Style bouton action -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#CDD6F4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,8,8,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="#313244"
+                                CornerRadius="6"
+                                Padding="14,6"
+                                BorderBrush="#45475A"
+                                BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#45475A" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Style port MIDI (toggle) -->
+        <Style x:Key="MidiPortToggleStyle" TargetType="ToggleButton">
+            <Setter Property="MinWidth" Value="180" />
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#A6ADC8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border"
+                                Background="#313244"
+                                CornerRadius="8"
+                                Padding="14,8"
+                                BorderBrush="#45475A"
+                                BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse x:Name="indicator"
+                                         Width="10" Height="10"
+                                         Fill="#585B70"
+                                         Margin="0,0,10,0"
+                                         VerticalAlignment="Center" />
+                                <ContentPresenter Grid.Column="1"
+                                                  VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#2D3A2D" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="#A6E3A1" />
+                                <Setter TargetName="indicator" Property="Fill" Value="#A6E3A1" />
+                                <Setter Property="Foreground" Value="#A6E3A1" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#45475A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+        <StackPanel Margin="24">
+
+            <!-- Titre page -->
+            <TextBlock Text="Configuration"
+                       Foreground="White"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Margin="0,0,0,16" />
+
+            <!-- ============================================================ -->
+            <!-- SECTION AUDIO                                                -->
+            <!-- ============================================================ -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="CONFIGURATION AUDIO"
+                               Style="{StaticResource SectionHeader}" />
+
+                    <!-- Driver ASIO -->
+                    <Grid Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Driver ASIO"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding AvailableDrivers}"
+                                  SelectedItem="{Binding SelectedDriver}"
+                                  Style="{StaticResource ConfigComboStyle}" />
+                    </Grid>
+
+                    <!-- Buffer Size -->
+                    <Grid Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Buffer Size"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding AvailableBufferSizes}"
+                                  SelectedItem="{Binding SelectedBufferSize}"
+                                  Style="{StaticResource ConfigComboStyle}" />
+                    </Grid>
+
+                    <!-- Bus Mappings -->
+                    <TextBlock Text="Bus → Sorties"
+                               Foreground="#A6ADC8"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Margin="0,12,0,6" />
+
+                    <ItemsControl ItemsSource="{Binding BusMappings}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding BusName}"
+                                               Foreground="#CDD6F4"
+                                               FontSize="13"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="→"
+                                               Foreground="#585B70"
+                                               FontSize="13"
+                                               Margin="8,0"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="2"
+                                             Text="{Binding OutputName, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="13"
+                                             MinWidth="150"
+                                             Padding="6,4" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Bouton Appliquer Audio -->
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Appliquer Audio"
+                                Command="{Binding ApplyAudioConfigCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+
+                        <!-- Indicateur statut -->
+                        <TextBlock Text="{Binding AudioStatusMessage}"
+                                   Foreground="#A6E3A1"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================================ -->
+            <!-- SECTION MIDI                                                 -->
+            <!-- ============================================================ -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="CONFIGURATION MIDI"
+                                   Style="{StaticResource SectionHeader}" />
+                        <TextBlock Grid.Column="1"
+                                   Foreground="#6C7086"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,0,12">
+                            <Run Text="{Binding SelectedMidiPortCount, Mode=OneWay}" />
+                            <Run Text="/ 6 ports" />
+                        </TextBlock>
+                    </Grid>
+
+                    <TextBlock Text="Sélectionnez jusqu'à 6 ports MIDI OUT :"
+                               Foreground="#A6ADC8"
+                               FontSize="13"
+                               Margin="0,0,0,8" />
+
+                    <!-- Liste des ports MIDI -->
+                    <ItemsControl ItemsSource="{Binding AvailableMidiPorts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ToggleButton Content="{Binding PortName}"
+                                              IsChecked="{Binding IsSelected}"
+                                              Style="{StaticResource MidiPortToggleStyle}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Boutons MIDI -->
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Appliquer MIDI"
+                                Command="{Binding ApplyMidiConfigCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+
+                        <Button Content="Test Send"
+                                Command="{Binding TestMidiSendCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+                    </StackPanel>
+
+                    <!-- Statut MIDI -->
+                    <TextBlock Text="{Binding MidiStatusMessage}"
+                               Foreground="#F9E2AF"
+                               FontSize="12"
+                               Margin="0,8,0,0" />
+
+                    <!-- Résultat test -->
+                    <TextBlock Text="{Binding MidiTestResult}"
+                               Foreground="#89B4FA"
+                               FontSize="12"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>
