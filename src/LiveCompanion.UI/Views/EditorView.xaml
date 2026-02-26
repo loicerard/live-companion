@@ -1,12 +1,380 @@
 <UserControl x:Class="LiveCompanion.UI.Views.EditorView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid>
-        <TextBlock Text="Editor"
-                   FontSize="32"
-                   FontWeight="Bold"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   Foreground="#888" />
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#181825">
+
+    <UserControl.Resources>
+        <!-- Style carte -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1E1E2E" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="20,16" />
+            <Setter Property="Margin" Value="0,6" />
+        </Style>
+
+        <!-- Style section header -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#6C7086" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <!-- Style label champ -->
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#A6ADC8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+
+        <!-- Style bouton action -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="MinWidth" Value="100" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#CDD6F4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,4,8,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="#313244"
+                                CornerRadius="6"
+                                Padding="14,6"
+                                BorderBrush="#45475A"
+                                BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#45475A" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Style bouton accent -->
+        <Style x:Key="AccentButtonStyle" TargetType="Button">
+            <Setter Property="MinWidth" Value="100" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#1E1E2E" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,4,8,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="#89B4FA"
+                                CornerRadius="6"
+                                Padding="14,6"
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#74A8FC" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Style TextBox éditeur -->
+        <Style x:Key="EditorTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="#313244" />
+            <Setter Property="Foreground" Value="#CDD6F4" />
+            <Setter Property="BorderBrush" Value="#45475A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="CaretBrush" Value="#CDD6F4" />
+            <Setter Property="Validation.ErrorTemplate">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <StackPanel>
+                            <AdornedElementPlaceholder />
+                            <TextBlock Foreground="#F38BA8" FontSize="11"
+                                       Margin="4,2,0,0"
+                                       Text="{Binding [0].ErrorContent}" />
+                        </StackPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Validation.HasError" Value="True">
+                    <Setter Property="BorderBrush" Value="#F38BA8" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Style ListBoxItem morceaux/sections -->
+        <Style x:Key="EditorListItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="#CDD6F4" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="border"
+                                Background="Transparent"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                Margin="0,1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#313244" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#2D3A5C" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="#89B4FA" />
+                                <Setter TargetName="border" Property="BorderThickness" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Style ComboBox -->
+        <Style x:Key="EditorComboStyle" TargetType="ComboBox">
+            <Setter Property="MinWidth" Value="60" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="24">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280" />
+            <ColumnDefinition Width="16" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- PANNEAU GAUCHE : Bibliothèque de morceaux                    -->
+        <!-- ============================================================ -->
+        <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top"
+                           Text="MORCEAUX"
+                           Style="{StaticResource SectionHeader}" />
+
+                <!-- Créer un nouveau morceau -->
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <TextBox Text="{Binding NewSongTitle, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource EditorTextBoxStyle}"
+                             Margin="0,0,0,6" />
+                    <Button Content="+ Nouveau morceau"
+                            Command="{Binding CreateSongCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Stretch" />
+                </StackPanel>
+
+                <!-- Supprimer le morceau sélectionné -->
+                <Button DockPanel.Dock="Bottom"
+                        Content="Supprimer"
+                        Command="{Binding DeleteSongCommand}"
+                        Style="{StaticResource ActionButtonStyle}"
+                        Foreground="#F38BA8"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,8,0,0" />
+
+                <!-- Liste des morceaux -->
+                <ListBox ItemsSource="{Binding Songs}"
+                         SelectedItem="{Binding SelectedSong}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ItemContainerStyle="{StaticResource EditorListItemStyle}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Title}"
+                                           Foreground="#CDD6F4"
+                                           FontSize="14"
+                                           FontWeight="Medium" />
+                                <TextBlock Foreground="#585B70" FontSize="11">
+                                    <Run Text="{Binding Sections.Count, Mode=OneWay}" />
+                                    <Run Text="sections" />
+                                </TextBlock>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- PANNEAU DROIT : Éditeur de sections                          -->
+        <!-- ============================================================ -->
+        <DockPanel Grid.Column="2">
+
+            <!-- Titre du morceau + Sauvegarder -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Titre :"
+                               Style="{StaticResource FieldLabel}"
+                               FontSize="16" />
+                    <TextBox Grid.Column="1"
+                             Text="{Binding SelectedSong.Title, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource EditorTextBoxStyle}"
+                             FontSize="16"
+                             FontWeight="SemiBold" />
+                    <Button Grid.Column="2"
+                            Content="Sauvegarder"
+                            Command="{Binding SaveSongCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Margin="12,0,0,0" />
+                </Grid>
+            </Border>
+
+            <!-- Message de statut -->
+            <TextBlock DockPanel.Dock="Top"
+                       Text="{Binding StatusMessage}"
+                       Foreground="#A6E3A1"
+                       FontSize="12"
+                       Margin="0,4,0,0" />
+
+            <!-- Barre d'actions sections -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource CardStyle}" Padding="20,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="SECTIONS"
+                               Style="{StaticResource SectionHeader}"
+                               Margin="0" VerticalAlignment="Center" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="+ Ajouter"
+                                Command="{Binding AddSectionCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+                        <Button Content="Supprimer"
+                                Command="{Binding RemoveSectionCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Foreground="#F38BA8" />
+                        <Button Content="&#x25B2; Monter"
+                                Command="{Binding MoveSectionUpCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+                        <Button Content="&#x25BC; Descendre"
+                                Command="{Binding MoveSectionDownCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Liste des sections + Détail -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Liste des sections -->
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                    <ListBox ItemsSource="{Binding Sections}"
+                             SelectedItem="{Binding SelectedSection}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ItemContainerStyle="{StaticResource EditorListItemStyle}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="#CDD6F4"
+                                           FontSize="13" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <!-- Détail de la section sélectionnée -->
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                    <StackPanel DataContext="{Binding SelectedSection}">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.SelectedSection,
+                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <!-- Nom de la section -->
+                        <TextBlock Text="NOM" Style="{StaticResource SectionHeader}" />
+                        <TextBox Text="{Binding Name,
+                                        UpdateSourceTrigger=PropertyChanged,
+                                        ValidatesOnNotifyDataErrors=True}"
+                                 Style="{StaticResource EditorTextBoxStyle}"
+                                 Margin="0,0,0,16" />
+
+                        <!-- Tempo -->
+                        <TextBlock Text="TEMPO (BPM)" Style="{StaticResource SectionHeader}" />
+                        <TextBox Text="{Binding Tempo,
+                                        UpdateSourceTrigger=LostFocus,
+                                        ValidatesOnNotifyDataErrors=True,
+                                        StringFormat={}{0:0.#}}"
+                                 Style="{StaticResource EditorTextBoxStyle}"
+                                 Margin="0,0,0,16" />
+
+                        <!-- Nombre de mesures -->
+                        <TextBlock Text="NOMBRE DE MESURES" Style="{StaticResource SectionHeader}" />
+                        <TextBox Text="{Binding BarCount,
+                                        UpdateSourceTrigger=LostFocus,
+                                        ValidatesOnNotifyDataErrors=True}"
+                                 Style="{StaticResource EditorTextBoxStyle}"
+                                 Margin="0,0,0,16" />
+
+                        <!-- Signature rythmique -->
+                        <TextBlock Text="SIGNATURE RYTHMIQUE" Style="{StaticResource SectionHeader}" />
+                        <StackPanel Orientation="Horizontal">
+                            <ComboBox ItemsSource="{Binding DataContext.AvailableNumerators,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      SelectedItem="{Binding TimeSignatureNumerator}"
+                                      Style="{StaticResource EditorComboStyle}" />
+                            <TextBlock Text="/"
+                                       Foreground="#585B70"
+                                       FontSize="16"
+                                       Margin="8,0"
+                                       VerticalAlignment="Center" />
+                            <ComboBox ItemsSource="{Binding DataContext.AvailableDenominators,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      SelectedItem="{Binding TimeSignatureDenominator}"
+                                      Style="{StaticResource EditorComboStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </DockPanel>
     </Grid>
 </UserControl>

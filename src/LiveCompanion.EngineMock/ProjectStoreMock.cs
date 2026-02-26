@@ -22,6 +22,7 @@ public sealed class ProjectStoreMock : IProjectStore
 
     private readonly object _lock = new();
     private readonly Dictionary<string, string> _store = []; // path → JSON
+    private readonly Dictionary<Guid, Song> _songs = [];     // id → Song
 
     // ------------------------------------------------------------------ //
     // Propriété utilitaire
@@ -90,7 +91,28 @@ public sealed class ProjectStoreMock : IProjectStore
             },
         };
 
+        lock (_lock)
+            _songs[song.Id] = song;
+
         Debug.WriteLine($"[ProjectStoreMock] CreateNew '{title}' — {song.Sections.Count} sections par défaut");
         return song;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Song> GetAll()
+    {
+        lock (_lock)
+            return _songs.Values.ToList().AsReadOnly();
+    }
+
+    /// <inheritdoc/>
+    public bool Delete(Guid songId)
+    {
+        bool removed;
+        lock (_lock)
+            removed = _songs.Remove(songId);
+
+        Debug.WriteLine($"[ProjectStoreMock] Delete '{songId}' → {(removed ? "OK" : "not found")}");
+        return removed;
     }
 }

@@ -25,4 +25,16 @@ public interface IProjectStore
     /// Crée un nouveau morceau vide avec les valeurs par défaut.
     /// </summary>
     Song CreateNew(string title = "Nouveau morceau");
+
+    /// <summary>
+    /// Retourne tous les morceaux actuellement en mémoire.
+    /// </summary>
+    IReadOnlyList<Song> GetAll();
+
+    /// <summary>
+    /// Supprime un morceau par son identifiant.
+    /// </summary>
+    /// <param name="songId">Identifiant du morceau à supprimer.</param>
+    /// <returns><c>true</c> si le morceau existait et a été supprimé.</returns>
+    bool Delete(Guid songId);
 }
