@@ -46,14 +46,21 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void Navigate(string destination)
     {
-        CurrentView = destination switch
+        var newView = destination switch
         {
-            "Live" => _liveFactory(),
+            "Live" => (ViewModelBase)_liveFactory(),
             "Editor" => _editorFactory(),
             "Library" => _libraryFactory(),
             "Config" => _configFactory(),
             _ => CurrentView
         };
+
+        if (newView != CurrentView)
+        {
+            (CurrentView as IDisposable)?.Dispose();
+            CurrentView = newView;
+        }
+
         ActiveSection = destination;
     }
 }
