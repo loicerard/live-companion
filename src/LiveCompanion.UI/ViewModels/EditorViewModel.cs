@@ -205,7 +205,7 @@ public partial class EditorViewModel : ViewModelBase
         bool hasErrors = false;
         foreach (var section in Sections)
         {
-            section.ValidateAllProperties();
+            section.Validate();
             if (section.HasErrors)
                 hasErrors = true;
         }

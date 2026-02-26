@@ -61,6 +61,9 @@ public partial class SectionViewModel : ObservableValidator
     /// <summary>Référence vers le modèle sous-jacent.</summary>
     public Section Model => _model;
 
+    /// <summary>Valide toutes les propriétés annotées et met à jour les erreurs.</summary>
+    public void Validate() => ValidateAllProperties();
+
     /// <summary>Indique si le ViewModel contient des erreurs de validation.</summary>
     public new bool HasErrors => ((INotifyDataErrorInfo)this).HasErrors;
 }
