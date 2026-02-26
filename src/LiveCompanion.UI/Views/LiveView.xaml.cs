@@ -7,5 +7,6 @@ public partial class LiveView : UserControl
     public LiveView()
     {
         InitializeComponent();
+        Loaded += (_, _) => Focus();
     }
 }
