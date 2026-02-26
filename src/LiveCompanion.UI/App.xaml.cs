@@ -6,6 +6,11 @@ namespace LiveCompanion.UI;
 
 public partial class App : Application
 {
+    /// <summary>
+    /// Mode moteur actuel. Changer en <see cref="EngineMode.Real"/> quand les moteurs réels seront prêts.
+    /// </summary>
+    private const EngineMode CurrentEngineMode = EngineMode.Mock;
+
     public static ServiceProvider Services { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -25,6 +30,7 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        services.AddSingleton<MainViewModel>();
+        services.AddEngines(CurrentEngineMode);
+        services.AddViewModels();
     }
 }

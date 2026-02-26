@@ -5,6 +5,11 @@ namespace LiveCompanion.UI.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    private readonly Func<LiveViewModel> _liveFactory;
+    private readonly Func<EditorViewModel> _editorFactory;
+    private readonly Func<LibraryViewModel> _libraryFactory;
+    private readonly Func<ConfigViewModel> _configFactory;
+
     [ObservableProperty]
     private ViewModelBase _currentView;
 
@@ -24,22 +29,38 @@ public partial class MainViewModel : ViewModelBase
     public bool IsLibraryActive => _activeSection == "Library";
     public bool IsConfigActive => _activeSection == "Config";
 
-    public MainViewModel()
+    public MainViewModel(
+        Func<LiveViewModel> liveFactory,
+        Func<EditorViewModel> editorFactory,
+        Func<LibraryViewModel> libraryFactory,
+        Func<ConfigViewModel> configFactory)
     {
-        _currentView = new LiveViewModel();
+        _liveFactory = liveFactory;
+        _editorFactory = editorFactory;
+        _libraryFactory = libraryFactory;
+        _configFactory = configFactory;
+
+        _currentView = _liveFactory();
     }
 
     [RelayCommand]
     private void Navigate(string destination)
     {
-        CurrentView = destination switch
+        var newView = destination switch
         {
-            "Live" => new LiveViewModel(),
-            "Editor" => new EditorViewModel(),
-            "Library" => new LibraryViewModel(),
-            "Config" => new ConfigViewModel(),
+            "Live" => (ViewModelBase)_liveFactory(),
+            "Editor" => _editorFactory(),
+            "Library" => _libraryFactory(),
+            "Config" => _configFactory(),
             _ => CurrentView
         };
+
+        if (newView != CurrentView)
+        {
+            (CurrentView as IDisposable)?.Dispose();
+            CurrentView = newView;
+        }
+
         ActiveSection = destination;
     }
 }
