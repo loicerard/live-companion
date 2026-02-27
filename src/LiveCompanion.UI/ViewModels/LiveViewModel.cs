@@ -37,6 +37,22 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private TransportState _currentState = TransportState.Stopped;
 
+    // ------------------------------------------------------------------ //
+    // Timeline (#17)
+    // ------------------------------------------------------------------ //
+
+    [ObservableProperty]
+    private IReadOnlyList<Section>? _timelineSections;
+
+    [ObservableProperty]
+    private int _timelineSectionIndex;
+
+    [ObservableProperty]
+    private int _timelineBar = 1;
+
+    [ObservableProperty]
+    private int _timelineBeat = 1;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(NextSectionCommand))]
     private bool _canTransition = true;
@@ -75,6 +91,7 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private void LoadDefaultSong()
     {
         _song = _projectStore.CreateNew();
+        TimelineSections = _song.Sections.AsReadOnly();
         UpdateSectionDisplay(0);
     }
 
@@ -123,6 +140,9 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
             UpdateSectionDisplay(0);
 
         PositionDisplay = "1 : 1";
+        TimelineSectionIndex = 0;
+        TimelineBar = 1;
+        TimelineBeat = 1;
     }
 
     [RelayCommand(CanExecute = nameof(CanTransition))]
@@ -150,12 +170,19 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         {
             PositionDisplay = $"{position.Bar} : {position.Beat}";
             CanTransition = _scheduler.CanTransitionNow;
+            TimelineSectionIndex = position.SectionIndex;
+            TimelineBar = position.Bar;
+            TimelineBeat = position.Beat;
         });
     }
 
     private void OnSectionChanged(object? sender, int sectionIndex)
     {
-        Application.Current?.Dispatcher.Invoke(() => UpdateSectionDisplay(sectionIndex));
+        Application.Current?.Dispatcher.Invoke(() =>
+        {
+            UpdateSectionDisplay(sectionIndex);
+            TimelineSectionIndex = sectionIndex;
+        });
     }
 
     // ------------------------------------------------------------------ //
