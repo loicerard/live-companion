@@ -20,6 +20,9 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     // ------------------------------------------------------------------ //
 
     [ObservableProperty]
+    private string _songTitle = "--";
+
+    [ObservableProperty]
     private string _currentSectionName = "--";
 
     [ObservableProperty]
@@ -91,6 +94,7 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private void LoadDefaultSong()
     {
         _song = _projectStore.CreateNew();
+        SongTitle = _song.Title;
         TimelineSections = _song.Sections.AsReadOnly();
         UpdateSectionDisplay(0);
     }
