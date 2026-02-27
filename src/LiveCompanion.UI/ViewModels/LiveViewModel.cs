@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,13 +15,20 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
 
     private Song? _song;
     private bool _disposed;
+    private List<Song> _songs = [];
+    private int _songIndex;
 
     // ------------------------------------------------------------------ //
     // Propriétés observables
     // ------------------------------------------------------------------ //
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PreviousSongCommand))]
+    [NotifyCanExecuteChangedFor(nameof(NextSongCommand))]
     private string _songTitle = "--";
+
+    [ObservableProperty]
+    private string _songPositionDisplay = "0 / 0";
 
     [ObservableProperty]
     private string _currentSectionName = "--";
@@ -38,6 +46,8 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private string _positionDisplay = "1 : 1";
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PreviousSongCommand))]
+    [NotifyCanExecuteChangedFor(nameof(NextSongCommand))]
     private TransportState _currentState = TransportState.Stopped;
 
     // ------------------------------------------------------------------ //
@@ -88,15 +98,40 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         _scheduler.PositionChanged += OnPositionChanged;
         _scheduler.SectionChanged += OnSectionChanged;
 
-        LoadDefaultSong();
+        RefreshSongList();
     }
 
-    private void LoadDefaultSong()
+    private void RefreshSongList()
     {
-        _song = _projectStore.CreateNew();
-        SongTitle = _song.Title;
-        TimelineSections = _song.Sections.AsReadOnly();
+        _songs = _projectStore.GetAll().ToList();
+
+        if (_songs.Count == 0)
+        {
+            // Créer un morceau par défaut si le store est vide
+            var defaultSong = _projectStore.CreateNew();
+            _songs = _projectStore.GetAll().ToList();
+        }
+
+        _songIndex = 0;
+        LoadSong(_songs[0]);
+    }
+
+    private void LoadSong(Song song)
+    {
+        _song = song;
+        SongTitle = song.Title;
+        SongPositionDisplay = $"{_songIndex + 1} / {_songs.Count}";
+        TimelineSections = song.Sections.AsReadOnly();
         UpdateSectionDisplay(0);
+        ResetPosition();
+    }
+
+    private void ResetPosition()
+    {
+        PositionDisplay = "1 : 1";
+        TimelineSectionIndex = 0;
+        TimelineBar = 1;
+        TimelineBeat = 1;
     }
 
     private void UpdateSectionDisplay(int sectionIndex)
@@ -143,10 +178,7 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         if (_song is not null)
             UpdateSectionDisplay(0);
 
-        PositionDisplay = "1 : 1";
-        TimelineSectionIndex = 0;
-        TimelineBar = 1;
-        TimelineBeat = 1;
+        ResetPosition();
     }
 
     [RelayCommand(CanExecute = nameof(CanTransition))]
@@ -154,6 +186,42 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     {
         await _scheduler.NextSectionAsync();
     }
+
+    // ------------------------------------------------------------------ //
+    // Commandes navigation morceaux
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand(CanExecute = nameof(CanPreviousSong))]
+    private async Task PreviousSongAsync()
+    {
+        if (_currentState != TransportState.Stopped)
+        {
+            await _scheduler.StopAsync();
+            await _transport.StopAsync();
+        }
+
+        _songIndex--;
+        LoadSong(_songs[_songIndex]);
+    }
+
+    private bool CanPreviousSong()
+        => _currentState == TransportState.Stopped && _songIndex > 0;
+
+    [RelayCommand(CanExecute = nameof(CanNextSong))]
+    private async Task NextSongAsync()
+    {
+        if (_currentState != TransportState.Stopped)
+        {
+            await _scheduler.StopAsync();
+            await _transport.StopAsync();
+        }
+
+        _songIndex++;
+        LoadSong(_songs[_songIndex]);
+    }
+
+    private bool CanNextSong()
+        => _currentState == TransportState.Stopped && _songIndex < _songs.Count - 1;
 
     // ------------------------------------------------------------------ //
     // Gestionnaires d'événements (dispatch UI thread)

@@ -10,6 +10,8 @@
         <KeyBinding Key="P" Command="{Binding PauseCommand}" />
         <KeyBinding Key="Escape" Command="{Binding StopCommand}" />
         <KeyBinding Key="N" Command="{Binding NextSectionCommand}" />
+        <KeyBinding Key="Left" Modifiers="Ctrl" Command="{Binding PreviousSongCommand}" />
+        <KeyBinding Key="Right" Modifiers="Ctrl" Command="{Binding NextSongCommand}" />
     </UserControl.InputBindings>
 
     <UserControl.Resources>
@@ -66,23 +68,63 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Morceau en cours -->
+        <!-- Morceau en cours + navigation -->
         <Border Grid.Row="0"
                 Background="#1E1E2E"
                 CornerRadius="10"
-                Padding="20,12"
+                Padding="16,10"
                 Margin="0,0,0,6">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="&#x1F3B5;"
-                           FontSize="18"
-                           VerticalAlignment="Center"
-                           Margin="0,0,10,0" />
-                <TextBlock Text="{Binding SongTitle}"
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Bouton Previous -->
+                <Button Grid.Column="0"
+                        Content="&#x25C0;"
+                        Command="{Binding PreviousSongCommand}"
+                        ToolTip="Morceau précédent"
+                        FontSize="14"
+                        Foreground="#CDD6F4"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Padding="8,4"
+                        VerticalAlignment="Center" />
+
+                <!-- Titre du morceau -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding SongTitle}"
                            Foreground="White"
                            FontSize="20"
                            FontWeight="Bold"
-                           VerticalAlignment="Center" />
-            </StackPanel>
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
+
+                <!-- Position (n / total) -->
+                <TextBlock Grid.Column="2"
+                           Text="{Binding SongPositionDisplay}"
+                           Foreground="#6C7086"
+                           FontSize="14"
+                           VerticalAlignment="Center"
+                           Margin="8,0" />
+
+                <!-- Bouton Next -->
+                <Button Grid.Column="3"
+                        Content="&#x25B6;"
+                        Command="{Binding NextSongCommand}"
+                        ToolTip="Morceau suivant"
+                        FontSize="14"
+                        Foreground="#CDD6F4"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Padding="8,4"
+                        VerticalAlignment="Center" />
+            </Grid>
         </Border>
 
         <!-- Section actuelle -->
