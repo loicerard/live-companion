@@ -10,7 +10,7 @@ namespace LiveCompanion.EngineMock;
 /// Simule la persistance de projets en mémoire (pas d'I/O fichier réel).
 /// Utilise <see cref="JsonSerializer"/> pour sérialiser/désérialiser les morceaux,
 /// ce qui garantit des copies indépendantes à chaque load/save (deep copy).
-/// Thread-safe : le dictionnaire interne est protégé par un <c>lock</c>.
+/// Thread-safe : les dictionnaires internes sont protégés par un <c>lock</c>.
 /// </summary>
 public sealed class ProjectStoreMock : IProjectStore
 {
@@ -23,6 +23,8 @@ public sealed class ProjectStoreMock : IProjectStore
     private readonly object _lock = new();
     private readonly Dictionary<string, string> _store = []; // path → JSON
     private readonly Dictionary<Guid, Song> _songs = [];     // id → Song
+    private readonly Dictionary<Guid, Playlist> _playlists = []; // id → Playlist
+    private AppSettings _settings = new();
 
     // ------------------------------------------------------------------ //
     // Propriété utilitaire
@@ -38,7 +40,7 @@ public sealed class ProjectStoreMock : IProjectStore
     }
 
     // ------------------------------------------------------------------ //
-    // IProjectStore
+    // IProjectStore — Songs
     // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
@@ -106,6 +108,22 @@ public sealed class ProjectStoreMock : IProjectStore
     }
 
     /// <inheritdoc/>
+    public void Update(Song song)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+
+        song.LastModified = DateTime.UtcNow;
+
+        lock (_lock)
+            _songs[song.Id] = song;
+
+        Debug.WriteLine($"[ProjectStoreMock] Update '{song.Title}' — " +
+                        $"{song.Sections.Count} sections, " +
+                        $"{song.AudioClips.Count} clips, " +
+                        $"{song.MidiEvents.Count} MIDI events");
+    }
+
+    /// <inheritdoc/>
     public bool Delete(Guid songId)
     {
         bool removed;
@@ -114,5 +132,74 @@ public sealed class ProjectStoreMock : IProjectStore
 
         Debug.WriteLine($"[ProjectStoreMock] Delete '{songId}' → {(removed ? "OK" : "not found")}");
         return removed;
+    }
+
+    // ------------------------------------------------------------------ //
+    // IProjectStore — Playlists
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public Playlist CreatePlaylist(string name = "Playlist")
+    {
+        var playlist = new Playlist { Name = name };
+
+        lock (_lock)
+            _playlists[playlist.Id] = playlist;
+
+        Debug.WriteLine($"[ProjectStoreMock] CreatePlaylist '{name}'");
+        return playlist;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<Playlist> GetAllPlaylists()
+    {
+        lock (_lock)
+            return _playlists.Values.ToList().AsReadOnly();
+    }
+
+    /// <inheritdoc/>
+    public void UpdatePlaylist(Playlist playlist)
+    {
+        ArgumentNullException.ThrowIfNull(playlist);
+
+        lock (_lock)
+            _playlists[playlist.Id] = playlist;
+
+        Debug.WriteLine($"[ProjectStoreMock] UpdatePlaylist '{playlist.Name}' — {playlist.SongIds.Count} songs");
+    }
+
+    /// <inheritdoc/>
+    public bool DeletePlaylist(Guid playlistId)
+    {
+        bool removed;
+        lock (_lock)
+            removed = _playlists.Remove(playlistId);
+
+        Debug.WriteLine($"[ProjectStoreMock] DeletePlaylist '{playlistId}' → {(removed ? "OK" : "not found")}");
+        return removed;
+    }
+
+    // ------------------------------------------------------------------ //
+    // IProjectStore — Settings
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public AppSettings GetSettings()
+    {
+        lock (_lock)
+            return _settings;
+    }
+
+    /// <inheritdoc/>
+    public void SaveSettings(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        lock (_lock)
+            _settings = settings;
+
+        Debug.WriteLine("[ProjectStoreMock] SaveSettings — " +
+                        $"audio={settings.AudioConfig?.DriverName ?? "null"}, " +
+                        $"midi ports={settings.MidiConfig?.SelectedPorts?.Count ?? 0}");
     }
 }

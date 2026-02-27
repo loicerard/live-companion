@@ -225,11 +225,27 @@
                             ToolTip="Stop (Esc)"
                             Style="{StaticResource TransportButtonStyle}" />
 
-                    <!-- Next Section -->
-                    <Button Content="&#x23ED;  Next"
-                            Command="{Binding NextSectionCommand}"
-                            ToolTip="Next Section (N)"
-                            Style="{StaticResource TransportButtonStyle}" />
+                    <!-- Next Section + indicateur de transition -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse Width="10" Height="10"
+                                 Margin="8,0,4,0"
+                                 VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#F38BA8" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CanTransition}" Value="True">
+                                            <Setter Property="Fill" Value="#A6E3A1" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <Button Content="&#x23ED;  Next"
+                                Command="{Binding NextSectionCommand}"
+                                ToolTip="Next Section (N)"
+                                Style="{StaticResource TransportButtonStyle}" />
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Indicateur d'état transport -->

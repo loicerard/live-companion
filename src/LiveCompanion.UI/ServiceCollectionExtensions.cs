@@ -73,12 +73,19 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITransportController, TransportControllerMock>();
         services.AddSingleton<IProjectStore, ProjectStoreMock>();
 
-        // TimelineSchedulerMock nécessite un délégué Func<bool> hasActiveVoices.
-        // On le câble à AudioEngineMock.ActiveVoices > 0.
+        // TimelineSchedulerMock nécessite :
+        // - un délégué Func<bool> hasActiveVoices (câblé à AudioEngineMock.ActiveVoices > 0)
+        // - IAudioEngine pour déclencher les AudioClips aux bonnes positions
+        // - IMidiEngine pour envoyer les MidiEvents aux bonnes positions
         services.AddSingleton<ITimelineScheduler>(sp =>
         {
             var audioMock = sp.GetRequiredService<AudioEngineMock>();
-            return new TimelineSchedulerMock(() => audioMock.ActiveVoices > 0);
+            var audioEngine = sp.GetRequiredService<IAudioEngine>();
+            var midiEngine = sp.GetRequiredService<IMidiEngine>();
+            return new TimelineSchedulerMock(
+                () => audioMock.ActiveVoices > 0,
+                audioEngine,
+                midiEngine);
         });
 
         return services;

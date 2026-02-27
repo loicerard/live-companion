@@ -466,7 +466,7 @@ public partial class EditorViewModel : ViewModelBase
         foreach (var evt in MidiEvents)
             evt.ApplyToModel();
 
-        SelectedSong.LastModified = DateTime.UtcNow;
+        _projectStore.Update(SelectedSong);
         StatusMessage = $"Morceau \"{SelectedSong.Title}\" sauvegardé.";
     }
 }

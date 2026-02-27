@@ -9,6 +9,7 @@ namespace LiveCompanion.EngineMock;
 /// <summary>
 /// Simule le scheduler de timeline sans moteur audio/MIDI réel.
 /// Avance les beats via un <see cref="Timer"/> et gère l'enchaînement automatique des sections.
+/// Déclenche les <see cref="AudioClip"/> et <see cref="MidiEvent"/> aux positions correspondantes.
 /// <para>
 /// Thread-safe : les mutations d'état sont sérialisées dans un <c>lock</c> ;
 /// les événements <see cref="PositionChanged"/> et <see cref="SectionChanged"/> sont levés
@@ -32,6 +33,9 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
     /// </summary>
     private readonly Func<bool> _hasActiveVoices;
 
+    private readonly IAudioEngine? _audioEngine;
+    private readonly IMidiEngine? _midiEngine;
+
     private Song? _song;
     private int _sectionIndex;
     private int _bar;   // 1-based
@@ -50,9 +54,16 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
     /// Permet à <see cref="CanTransitionNow"/> de refléter l'état audio.
     /// Si <c>null</c>, le scheduler considère qu'il n'y a jamais de voix actives.
     /// </param>
-    public TimelineSchedulerMock(Func<bool>? hasActiveVoices = null)
+    /// <param name="audioEngine">Moteur audio pour déclencher les samples aux positions de la timeline.</param>
+    /// <param name="midiEngine">Moteur MIDI pour envoyer les événements aux positions de la timeline.</param>
+    public TimelineSchedulerMock(
+        Func<bool>? hasActiveVoices = null,
+        IAudioEngine? audioEngine = null,
+        IMidiEngine? midiEngine = null)
     {
         _hasActiveVoices = hasActiveVoices ?? (() => false);
+        _audioEngine = audioEngine;
+        _midiEngine = midiEngine;
         _timer = new Timer { AutoReset = false }; // intervalle recalculé à chaque tick
         _timer.Elapsed += OnTimerElapsed;
     }
@@ -114,6 +125,10 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
         Debug.WriteLine($"[TimelineSchedulerMock] Start — section={startSectionIndex} '{song.Sections[startSectionIndex].Name}'");
 
         var pos = CurrentPosition;
+
+        // Déclencher les clips/événements à la position de départ
+        TriggerEventsAtPosition(song, pos);
+
         PositionChanged?.Invoke(this, pos);
         return Task.CompletedTask;
     }
@@ -205,12 +220,14 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
         TimelinePosition? pos = null;
         int? sectionChanged = null;
         bool stopped = false;
+        Song? song = null;
 
         lock (_lock)
         {
             if (!_running || _song is null)
                 return;
 
+            song = _song;
             var section = _song.Sections[_sectionIndex];
 
             _beat++;
@@ -256,13 +273,87 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
         }
 
         if (pos is not null)
+        {
+            // Déclencher les AudioClips et MidiEvents à cette position
+            if (song is not null)
+                TriggerEventsAtPosition(song, pos);
+
             PositionChanged?.Invoke(this, pos);
+        }
 
         if (stopped)
         {
             Debug.WriteLine("[TimelineSchedulerMock] End of song — auto-stopped");
             PositionChanged?.Invoke(this, CurrentPosition);
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Déclenchement AudioClips / MidiEvents
+    // ------------------------------------------------------------------ //
+
+    private void TriggerEventsAtPosition(Song song, TimelinePosition pos)
+    {
+        // AudioClips
+        foreach (var clip in song.AudioClips)
+        {
+            if (!ShouldTriggerClip(clip, pos))
+                continue;
+
+            try
+            {
+                _ = _audioEngine?.PlayClipAsync(clip);
+                Debug.WriteLine(
+                    $"[TimelineSchedulerMock] Trigger AudioClip '{clip.Name}' " +
+                    $"at {pos.SectionIndex}:{pos.Bar}:{pos.Beat}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                Debug.WriteLine(
+                    $"[TimelineSchedulerMock] AudioClip '{clip.Name}' skipped — {ex.Message}");
+            }
+        }
+
+        // MidiEvents
+        foreach (var evt in song.MidiEvents)
+        {
+            if (evt.Position.SectionIndex != pos.SectionIndex ||
+                evt.Position.Bar != pos.Bar ||
+                evt.Position.Beat != pos.Beat)
+                continue;
+
+            try
+            {
+                _ = _midiEngine?.SendEventAsync(evt);
+                Debug.WriteLine(
+                    $"[TimelineSchedulerMock] Trigger MidiEvent {evt.Type} ch.{evt.Channel} " +
+                    $"at {pos.SectionIndex}:{pos.Bar}:{pos.Beat}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                Debug.WriteLine(
+                    $"[TimelineSchedulerMock] MidiEvent skipped — {ex.Message}");
+            }
+        }
+    }
+
+    private static bool ShouldTriggerClip(AudioClip clip, TimelinePosition pos)
+    {
+        if (clip.Position.SectionIndex != pos.SectionIndex)
+            return false;
+
+        return clip.SyncMode switch
+        {
+            // Free : déclencher quand section, mesure et temps correspondent
+            SyncMode.Free =>
+                clip.Position.Bar == pos.Bar && clip.Position.Beat == pos.Beat,
+
+            // BarAligned : déclencher uniquement sur le premier temps de la mesure
+            SyncMode.BarAligned =>
+                clip.Position.Bar == pos.Bar && pos.Beat == 1,
+
+            _ => false,
+        };
     }
 
     // ------------------------------------------------------------------ //

@@ -7,6 +7,10 @@ namespace LiveCompanion.Core.Interfaces;
 /// </summary>
 public interface IProjectStore
 {
+    // ------------------------------------------------------------------ //
+    // Songs
+    // ------------------------------------------------------------------ //
+
     /// <summary>
     /// Charge un morceau depuis un fichier JSON.
     /// </summary>
@@ -32,9 +36,41 @@ public interface IProjectStore
     IReadOnlyList<Song> GetAll();
 
     /// <summary>
+    /// Met à jour un morceau existant dans le store (met à jour <see cref="Song.LastModified"/>).
+    /// </summary>
+    /// <param name="song">Morceau modifié.</param>
+    void Update(Song song);
+
+    /// <summary>
     /// Supprime un morceau par son identifiant.
     /// </summary>
     /// <param name="songId">Identifiant du morceau à supprimer.</param>
     /// <returns><c>true</c> si le morceau existait et a été supprimé.</returns>
     bool Delete(Guid songId);
+
+    // ------------------------------------------------------------------ //
+    // Playlists
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Crée une nouvelle playlist vide.</summary>
+    Playlist CreatePlaylist(string name = "Playlist");
+
+    /// <summary>Retourne toutes les playlists en mémoire.</summary>
+    IReadOnlyList<Playlist> GetAllPlaylists();
+
+    /// <summary>Met à jour une playlist existante.</summary>
+    void UpdatePlaylist(Playlist playlist);
+
+    /// <summary>Supprime une playlist par son identifiant.</summary>
+    bool DeletePlaylist(Guid playlistId);
+
+    // ------------------------------------------------------------------ //
+    // Settings
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Retourne les paramètres globaux de l'application.</summary>
+    AppSettings GetSettings();
+
+    /// <summary>Sauvegarde les paramètres globaux.</summary>
+    void SaveSettings(AppSettings settings);
 }
