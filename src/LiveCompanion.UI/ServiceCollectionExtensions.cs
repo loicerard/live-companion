@@ -1,5 +1,6 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.EngineMock;
+using LiveCompanion.EngineReal;
 using LiveCompanion.UI.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -93,11 +94,12 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddRealEngines(this IServiceCollection services)
     {
-        // TODO: Enregistrer les implémentations réelles quand LiveCompanion.EngineReal
-        //       fournira des classes concrètes. Pour l'instant, on lève une exception
-        //       pour rendre toute mauvaise configuration évidente.
-        throw new NotImplementedException(
-            "Les implémentations moteur réelles ne sont pas encore disponibles. " +
-            "Utilisez EngineMode.Mock.");
+        services.AddSingleton<IAudioEngine, AudioEngineReal>();
+        services.AddSingleton<IMidiEngine, MidiEngineReal>();
+        services.AddSingleton<ITransportController, TransportControllerReal>();
+        services.AddSingleton<IProjectStore, ProjectStoreReal>();
+        services.AddSingleton<ITimelineScheduler, TimelineSchedulerReal>();
+
+        return services;
     }
 }
