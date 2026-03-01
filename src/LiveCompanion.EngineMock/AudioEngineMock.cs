@@ -1,6 +1,5 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
-using System.Diagnostics;
 
 namespace LiveCompanion.EngineMock;
 
@@ -20,9 +19,15 @@ public sealed class AudioEngineMock : IAudioEngine
     private static readonly IReadOnlyList<int> _fakeBufferSizes =
         [64, 128, 256, 512, 1024];
 
+    private readonly ILogService _log;
     private volatile bool _initialized;
     private int _activeVoices; // modified via Interlocked
     private AudioConfig? _config;
+
+    public AudioEngineMock(ILogService log)
+    {
+        _log = log ?? throw new ArgumentNullException(nameof(log));
+    }
 
     // ------------------------------------------------------------------ //
     // Propriété utilitaire
@@ -45,7 +50,7 @@ public sealed class AudioEngineMock : IAudioEngine
         ArgumentNullException.ThrowIfNull(config);
         _config = config;
         _initialized = true;
-        Debug.WriteLine($"[AudioEngineMock] Initialized — driver='{config.DriverName}', buffer={config.BufferSize}");
+        _log.Debug(LogSource.EngineMock, $"[AudioEngine] Initialized — driver='{config.DriverName}', buffer={config.BufferSize}");
         return Task.CompletedTask;
     }
 
@@ -63,12 +68,12 @@ public sealed class AudioEngineMock : IAudioEngine
 
         if (Volatile.Read(ref _activeVoices) >= MaxVoices)
         {
-            Debug.WriteLine($"[AudioEngineMock] Voice limit ({MaxVoices}) reached — clip '{clip.Name}' dropped.");
+            _log.Warn(LogSource.EngineMock, $"[AudioEngine] Voice limit ({MaxVoices}) reached — clip '{clip.Name}' dropped.");
             return Task.CompletedTask;
         }
 
         Interlocked.Increment(ref _activeVoices);
-        Debug.WriteLine($"[AudioEngineMock] Playing '{clip.Name}' on bus '{clip.BusName}' " +
+        _log.Debug(LogSource.EngineMock, $"[AudioEngine] Playing '{clip.Name}' on bus '{clip.BusName}' " +
                         $"vol={clip.Volume:F2} — active voices={ActiveVoices}");
 
         // Simule une courte durée de lecture (200 ms) puis libère la voix.
@@ -76,7 +81,7 @@ public sealed class AudioEngineMock : IAudioEngine
         {
             await Task.Delay(200).ConfigureAwait(false);
             Interlocked.Decrement(ref _activeVoices);
-            Debug.WriteLine($"[AudioEngineMock] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
+            _log.Debug(LogSource.EngineMock, $"[AudioEngine] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
         });
 
         return Task.CompletedTask;
@@ -87,7 +92,7 @@ public sealed class AudioEngineMock : IAudioEngine
     {
         ThrowIfNotInitialized();
         Volatile.Write(ref _activeVoices, 0);
-        Debug.WriteLine("[AudioEngineMock] StopAll — active voices reset to 0");
+        _log.Debug(LogSource.EngineMock, "[AudioEngine] StopAll — active voices reset to 0");
         return Task.CompletedTask;
     }
 
@@ -97,7 +102,7 @@ public sealed class AudioEngineMock : IAudioEngine
         _initialized = false;
         Volatile.Write(ref _activeVoices, 0);
         _config = null;
-        Debug.WriteLine("[AudioEngineMock] Shutdown");
+        _log.Debug(LogSource.EngineMock, "[AudioEngine] Shutdown");
         return Task.CompletedTask;
     }
 

@@ -1,6 +1,5 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
-using System.Diagnostics;
 using System.Timers;
 using Timer = System.Timers.Timer;
 
@@ -25,6 +24,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
 
     private readonly object _lock = new();
     private readonly Timer _timer;
+    private readonly ILogService _log;
 
     /// <summary>
     /// Délégué optionnel qui indique si des voix audio sont actives.
@@ -49,6 +49,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
     /// <summary>
     /// Crée un scheduler mock.
     /// </summary>
+    /// <param name="log">Service de logging.</param>
     /// <param name="hasActiveVoices">
     /// Délégué retournant <c>true</c> si des voix audio fictives sont en cours de lecture.
     /// Permet à <see cref="CanTransitionNow"/> de refléter l'état audio.
@@ -57,10 +58,12 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
     /// <param name="audioEngine">Moteur audio pour déclencher les samples aux positions de la timeline.</param>
     /// <param name="midiEngine">Moteur MIDI pour envoyer les événements aux positions de la timeline.</param>
     public TimelineSchedulerMock(
+        ILogService log,
         Func<bool>? hasActiveVoices = null,
         IAudioEngine? audioEngine = null,
         IMidiEngine? midiEngine = null)
     {
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _hasActiveVoices = hasActiveVoices ?? (() => false);
         _audioEngine = audioEngine;
         _midiEngine = midiEngine;
@@ -122,7 +125,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
             ArmTimer(song.Sections[startSectionIndex].Tempo);
         }
 
-        Debug.WriteLine($"[TimelineSchedulerMock] Start — section={startSectionIndex} '{song.Sections[startSectionIndex].Name}'");
+        _log.Debug(LogSource.EngineMock, $"[Scheduler] Start — section={startSectionIndex} '{song.Sections[startSectionIndex].Name}'");
 
         var pos = CurrentPosition;
 
@@ -145,7 +148,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
             // _sectionIndex est conservé pour pouvoir reprendre depuis la même section
         }
 
-        Debug.WriteLine("[TimelineSchedulerMock] Stop");
+        _log.Debug(LogSource.EngineMock, "[Scheduler] Stop");
 
         var pos = CurrentPosition;
         PositionChanged?.Invoke(this, pos);
@@ -157,7 +160,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
     {
         if (!CanTransitionNow)
         {
-            Debug.WriteLine("[TimelineSchedulerMock] NextSection ignored — CanTransitionNow=false");
+            _log.Debug(LogSource.EngineMock, "[Scheduler] NextSection ignored — CanTransitionNow=false");
             return Task.CompletedTask;
         }
 
@@ -191,12 +194,12 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
 
         if (shouldStop)
         {
-            Debug.WriteLine("[TimelineSchedulerMock] NextSection → end of song, stopping");
+            _log.Debug(LogSource.EngineMock, "[Scheduler] NextSection → end of song, stopping");
             PositionChanged?.Invoke(this, CurrentPosition);
         }
         else if (newSection.HasValue)
         {
-            Debug.WriteLine($"[TimelineSchedulerMock] NextSection → section={newSection}");
+            _log.Debug(LogSource.EngineMock, $"[Scheduler] NextSection → section={newSection}");
             SectionChanged?.Invoke(this, newSection.Value);
             PositionChanged?.Invoke(this, CurrentPosition);
         }
@@ -268,7 +271,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
         // Lever les événements hors du lock
         if (sectionChanged.HasValue)
         {
-            Debug.WriteLine($"[TimelineSchedulerMock] Auto-advance → section={sectionChanged}");
+            _log.Debug(LogSource.EngineMock, $"[Scheduler] Auto-advance → section={sectionChanged}");
             SectionChanged?.Invoke(this, sectionChanged.Value);
         }
 
@@ -283,7 +286,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
 
         if (stopped)
         {
-            Debug.WriteLine("[TimelineSchedulerMock] End of song — auto-stopped");
+            _log.Debug(LogSource.EngineMock, "[Scheduler] End of song — auto-stopped");
             PositionChanged?.Invoke(this, CurrentPosition);
         }
     }
@@ -303,14 +306,14 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
             try
             {
                 _ = _audioEngine?.PlayClipAsync(clip);
-                Debug.WriteLine(
-                    $"[TimelineSchedulerMock] Trigger AudioClip '{clip.Name}' " +
+                _log.Debug(LogSource.EngineMock,
+                    $"[Scheduler] Trigger AudioClip '{clip.Name}' " +
                     $"at {pos.SectionIndex}:{pos.Bar}:{pos.Beat}");
             }
             catch (InvalidOperationException ex)
             {
-                Debug.WriteLine(
-                    $"[TimelineSchedulerMock] AudioClip '{clip.Name}' skipped — {ex.Message}");
+                _log.Warn(LogSource.EngineMock,
+                    $"[Scheduler] AudioClip '{clip.Name}' skipped — {ex.Message}");
             }
         }
 
@@ -325,14 +328,14 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
             try
             {
                 _ = _midiEngine?.SendEventAsync(evt);
-                Debug.WriteLine(
-                    $"[TimelineSchedulerMock] Trigger MidiEvent {evt.Type} ch.{evt.Channel} " +
+                _log.Debug(LogSource.EngineMock,
+                    $"[Scheduler] Trigger MidiEvent {evt.Type} ch.{evt.Channel} " +
                     $"at {pos.SectionIndex}:{pos.Bar}:{pos.Beat}");
             }
             catch (InvalidOperationException ex)
             {
-                Debug.WriteLine(
-                    $"[TimelineSchedulerMock] MidiEvent skipped — {ex.Message}");
+                _log.Warn(LogSource.EngineMock,
+                    $"[Scheduler] MidiEvent skipped — {ex.Message}");
             }
         }
     }

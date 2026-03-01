@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.Core.Interfaces;
@@ -12,6 +11,7 @@ public partial class EditorViewModel : ViewModelBase
 {
     private readonly IProjectStore _projectStore;
     private readonly IMidiEngine _midiEngine;
+    private readonly ILogService _log;
 
     // ------------------------------------------------------------------ //
     // Bibliothèque de morceaux (panneau gauche)
@@ -94,10 +94,11 @@ public partial class EditorViewModel : ViewModelBase
     // Constructeur
     // ------------------------------------------------------------------ //
 
-    public EditorViewModel(IProjectStore projectStore, IMidiEngine midiEngine)
+    public EditorViewModel(IProjectStore projectStore, IMidiEngine midiEngine, ILogService log)
     {
         _projectStore = projectStore;
         _midiEngine = midiEngine;
+        _log = log;
         RefreshSongList();
     }
 
@@ -373,7 +374,7 @@ public partial class EditorViewModel : ViewModelBase
         try
         {
             await _midiEngine.SendEventAsync(SelectedMidiEvent.Model);
-            Debug.WriteLine($"[EditorVM] Test MIDI → {SelectedMidiEvent.DisplaySummary}");
+            _log.Debug(LogSource.UI, $"[EditorVM] Test MIDI → {SelectedMidiEvent.DisplaySummary}");
             StatusMessage = $"Test MIDI envoyé : {SelectedMidiEvent.DisplaySummary}";
         }
         catch (InvalidOperationException)

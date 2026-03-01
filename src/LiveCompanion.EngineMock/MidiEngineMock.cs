@@ -1,6 +1,5 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
-using System.Diagnostics;
 
 namespace LiveCompanion.EngineMock;
 
@@ -14,11 +13,17 @@ public sealed class MidiEngineMock : IMidiEngine
     private static readonly IReadOnlyList<string> _fakePorts =
         ["MockMIDI Port 1", "MockMIDI Port 2", "MockMIDI Port 3"];
 
+    private readonly ILogService _log;
     private volatile bool _initialized;
     private MidiConfig? _config;
 
     private readonly object _lock = new();
     private readonly List<MidiEvent> _sentEvents = [];
+
+    public MidiEngineMock(ILogService log)
+    {
+        _log = log ?? throw new ArgumentNullException(nameof(log));
+    }
 
     // ------------------------------------------------------------------ //
     // Propriété utilitaire
@@ -43,7 +48,7 @@ public sealed class MidiEngineMock : IMidiEngine
         ArgumentNullException.ThrowIfNull(config);
         _config = config;
         _initialized = true;
-        Debug.WriteLine($"[MidiEngineMock] Initialized — ports=[{string.Join(", ", config.SelectedPorts)}]");
+        _log.Debug(LogSource.EngineMock, $"[MidiEngine] Initialized — ports=[{string.Join(", ", config.SelectedPorts)}]");
         return Task.CompletedTask;
     }
 
@@ -59,8 +64,8 @@ public sealed class MidiEngineMock : IMidiEngine
         lock (_lock)
             _sentEvents.Add(midiEvent);
 
-        Debug.WriteLine(
-            $"[MidiEngineMock] Send — type={midiEvent.Type}, " +
+        _log.Debug(LogSource.EngineMock,
+            $"[MidiEngine] Send — type={midiEvent.Type}, " +
             $"device='{midiEvent.DeviceOut}', ch={midiEvent.Channel}, " +
             $"data1={midiEvent.Data1}, data2={midiEvent.Data2}, " +
             $"pos={midiEvent.Position}");
@@ -75,7 +80,7 @@ public sealed class MidiEngineMock : IMidiEngine
         _config = null;
         lock (_lock)
             _sentEvents.Clear();
-        Debug.WriteLine("[MidiEngineMock] Shutdown");
+        _log.Debug(LogSource.EngineMock, "[MidiEngine] Shutdown");
         return Task.CompletedTask;
     }
 
