@@ -1,5 +1,6 @@
 using FluentAssertions;
 using LiveCompanion.Core.Models;
+using Xunit;
 
 namespace LiveCompanion.Tests.Models;
 

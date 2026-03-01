@@ -3,6 +3,7 @@ using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
 using LiveCompanion.Core.Services;
 using LiveCompanion.EngineMock;
+using Xunit;
 
 namespace LiveCompanion.Tests.Mocks;
 
