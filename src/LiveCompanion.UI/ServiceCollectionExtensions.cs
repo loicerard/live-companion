@@ -109,7 +109,23 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMidiEngine, MidiEngineReal>();
         services.AddSingleton<ITransportController, TransportControllerReal>();
         services.AddSingleton<IProjectStore, ProjectStoreReal>();
-        services.AddSingleton<ITimelineScheduler, TimelineSchedulerReal>();
+
+        // TimelineSchedulerReal requires the same wiring as Mock:
+        // - ILogService for unified logging
+        // - hasActiveVoices delegate (always false for now — Phase 5 will add real check)
+        // - IAudioEngine for triggering AudioClips at timeline positions
+        // - IMidiEngine for sending MidiEvents at timeline positions
+        services.AddSingleton<ITimelineScheduler>(sp =>
+        {
+            var log = sp.GetRequiredService<ILogService>();
+            var audioEngine = sp.GetRequiredService<IAudioEngine>();
+            var midiEngine = sp.GetRequiredService<IMidiEngine>();
+            return new TimelineSchedulerReal(
+                log,
+                () => false, // Phase 5: wire to VoicePool.ActiveCount > 0
+                audioEngine,
+                midiEngine);
+        });
 
         return services;
     }
