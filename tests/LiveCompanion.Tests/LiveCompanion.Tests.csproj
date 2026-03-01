@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\LiveCompanion.Core\LiveCompanion.Core.csproj" />
     <ProjectReference Include="..\..\src\LiveCompanion.EngineMock\LiveCompanion.EngineMock.csproj" />
+    <ProjectReference Include="..\..\src\LiveCompanion.EngineReal\LiveCompanion.EngineReal.csproj" />
   </ItemGroup>
 
 </Project>

@@ -2,16 +2,15 @@ using FluentAssertions;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
 using LiveCompanion.Core.Services;
-using LiveCompanion.EngineMock;
-using Xunit;
+using LiveCompanion.EngineReal;
 
-namespace LiveCompanion.Tests.Mocks;
+namespace LiveCompanion.Tests.EngineReal;
 
-public class TransportControllerMockTests
+public class TransportControllerRealTests
 {
     private readonly ILogService _log = new DebugLogService();
 
-    private TransportControllerMock CreateTransport() => new(_log);
+    private TransportControllerReal CreateTransport() => new(_log);
 
     [Fact]
     public void InitialState_ShouldBeStopped()

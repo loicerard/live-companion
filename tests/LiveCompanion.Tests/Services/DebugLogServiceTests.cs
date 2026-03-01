@@ -1,6 +1,7 @@
 using FluentAssertions;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Services;
+using Xunit;
 
 namespace LiveCompanion.Tests.Services;
 

@@ -2,21 +2,18 @@ using FluentAssertions;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
 using LiveCompanion.Core.Services;
-using LiveCompanion.EngineMock;
-using Xunit;
+using LiveCompanion.EngineReal;
 
-namespace LiveCompanion.Tests.Mocks;
+namespace LiveCompanion.Tests.EngineReal;
 
-public class TimelineSchedulerMockTests : IDisposable
+public class TimelineSchedulerRealTests : IDisposable
 {
     private readonly ILogService _log = new DebugLogService();
-    private readonly AudioEngineMock _audioEngine;
-    private readonly TimelineSchedulerMock _scheduler;
+    private readonly TimelineSchedulerReal _scheduler;
 
-    public TimelineSchedulerMockTests()
+    public TimelineSchedulerRealTests()
     {
-        _audioEngine = new AudioEngineMock(_log);
-        _scheduler = new TimelineSchedulerMock(_log, () => _audioEngine.ActiveVoices > 0);
+        _scheduler = new TimelineSchedulerReal(_log, () => false);
     }
 
     public void Dispose() => _scheduler.Dispose();
@@ -38,6 +35,10 @@ public class TimelineSchedulerMockTests : IDisposable
         return song;
     }
 
+    // ------------------------------------------------------------------ //
+    // Start
+    // ------------------------------------------------------------------ //
+
     [Fact]
     public async Task Start_ShouldSetPositionToBeginning()
     {
@@ -48,6 +49,8 @@ public class TimelineSchedulerMockTests : IDisposable
         pos.SectionIndex.Should().Be(0);
         pos.Bar.Should().Be(1);
         pos.Beat.Should().Be(1);
+
+        await _scheduler.StopAsync();
     }
 
     [Fact]
@@ -57,6 +60,8 @@ public class TimelineSchedulerMockTests : IDisposable
         await _scheduler.StartAsync(song, startSectionIndex: 1);
 
         _scheduler.CurrentPosition.SectionIndex.Should().Be(1);
+
+        await _scheduler.StopAsync();
     }
 
     [Fact]
@@ -75,6 +80,10 @@ public class TimelineSchedulerMockTests : IDisposable
         act.Should().ThrowAsync<ArgumentNullException>();
     }
 
+    // ------------------------------------------------------------------ //
+    // Stop
+    // ------------------------------------------------------------------ //
+
     [Fact]
     public async Task Stop_ShouldResetBarAndBeat()
     {
@@ -85,7 +94,12 @@ public class TimelineSchedulerMockTests : IDisposable
         var pos = _scheduler.CurrentPosition;
         pos.Bar.Should().Be(1);
         pos.Beat.Should().Be(1);
+        pos.Tick.Should().Be(0);
     }
+
+    // ------------------------------------------------------------------ //
+    // Events
+    // ------------------------------------------------------------------ //
 
     [Fact]
     public async Task PositionChanged_ShouldFireOnStart()
@@ -98,7 +112,13 @@ public class TimelineSchedulerMockTests : IDisposable
 
         received.Should().NotBeNull();
         received!.SectionIndex.Should().Be(0);
+
+        await _scheduler.StopAsync();
     }
+
+    // ------------------------------------------------------------------ //
+    // CanTransitionNow
+    // ------------------------------------------------------------------ //
 
     [Fact]
     public async Task CanTransitionNow_WhenNoActiveVoices_ShouldBeTrue()
@@ -107,7 +127,31 @@ public class TimelineSchedulerMockTests : IDisposable
         await _scheduler.StartAsync(song);
 
         _scheduler.CanTransitionNow.Should().BeTrue();
+
+        await _scheduler.StopAsync();
     }
+
+    [Fact]
+    public void CanTransitionNow_WhenNotRunning_ShouldBeTrue()
+    {
+        _scheduler.CanTransitionNow.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CanTransitionNow_WithActiveVoices_ShouldBeFalse()
+    {
+        using var scheduler = new TimelineSchedulerReal(_log, () => true);
+        var song = CreateTestSong();
+        await scheduler.StartAsync(song);
+
+        scheduler.CanTransitionNow.Should().BeFalse();
+
+        await scheduler.StopAsync();
+    }
+
+    // ------------------------------------------------------------------ //
+    // NextSection
+    // ------------------------------------------------------------------ //
 
     [Fact]
     public async Task NextSection_ShouldAdvance()
@@ -122,6 +166,8 @@ public class TimelineSchedulerMockTests : IDisposable
 
         _scheduler.CurrentPosition.SectionIndex.Should().Be(1);
         sectionNotified.Should().Be(1);
+
+        await _scheduler.StopAsync();
     }
 
     [Fact]
@@ -132,22 +178,25 @@ public class TimelineSchedulerMockTests : IDisposable
 
         await _scheduler.NextSectionAsync();
 
-        // After next on last section, position resets (stopped)
         _scheduler.CurrentPosition.Bar.Should().Be(1);
         _scheduler.CurrentPosition.Beat.Should().Be(1);
     }
 
+    // ------------------------------------------------------------------ //
+    // Timer advancement
+    // ------------------------------------------------------------------ //
+
     [Fact]
     public async Task Timer_ShouldAdvanceBeats()
     {
-        // Fast tempo (600 BPM = 100ms per beat) to test timer progression
+        // 600 BPM = 100ms per beat — fast enough for testing
         var song = CreateTestSong(tempo: 600);
         var positions = new List<TimelinePosition>();
 
         _scheduler.PositionChanged += (_, pos) => positions.Add(pos);
         await _scheduler.StartAsync(song);
 
-        // Wait for a few beats
+        // Wait for several beats
         await Task.Delay(500);
         await _scheduler.StopAsync();
 
@@ -158,18 +207,59 @@ public class TimelineSchedulerMockTests : IDisposable
     [Fact]
     public async Task SectionChanged_ShouldFireOnAutoAdvance()
     {
-        // 1 section with 1 bar, 4/4, at 600 BPM (100ms per beat)
-        // After 4 beats = 400ms the section ends
+        // 1 bar, 4/4, 600 BPM → 4 beats = 400ms per section
         var song = CreateTestSong(sectionCount: 2, barsPerSection: 1, tempo: 600);
         var sections = new List<int>();
 
         _scheduler.SectionChanged += (_, idx) => sections.Add(idx);
         await _scheduler.StartAsync(song);
 
-        // Wait for auto-advance
+        // Wait for auto-advance (should happen after ~400ms)
         await Task.Delay(800);
         await _scheduler.StopAsync();
 
         sections.Should().Contain(1);
+    }
+
+    [Fact]
+    public async Task TickPrecision_ShouldTrackSubBeatPosition()
+    {
+        // At 60 BPM, 1 beat = 1 second, so after ~50ms we should have ticks > 0
+        var song = CreateTestSong(tempo: 60);
+        await _scheduler.StartAsync(song);
+
+        // Wait a fraction of a beat
+        await Task.Delay(50);
+
+        var pos = _scheduler.CurrentPosition;
+
+        // Should still be on beat 1 but with ticks > 0
+        pos.Beat.Should().Be(1);
+        pos.Tick.Should().BeGreaterThan(0, "scheduler should track sub-beat ticks");
+
+        await _scheduler.StopAsync();
+    }
+
+    [Fact]
+    public async Task StopAndRestart_ShouldResetPosition()
+    {
+        var song = CreateTestSong(tempo: 600);
+
+        await _scheduler.StartAsync(song);
+        await Task.Delay(250); // let it advance
+        await _scheduler.StopAsync();
+
+        // Restart from beginning
+        await _scheduler.StartAsync(song);
+        var pos = _scheduler.CurrentPosition;
+
+        pos.SectionIndex.Should().Be(0);
+        pos.Bar.Should().Be(1);
+        pos.Beat.Should().Be(1);
+        // Tick may be slightly > 0 due to thread startup latency
+        pos.Tick.Should().BeLessThan(TimelineSchedulerReal.TicksPerBeat / 2,
+            "position should be near the start after restart");
+
+        await _scheduler.StopAsync();
     }
 }
