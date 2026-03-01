@@ -327,4 +327,221 @@ public class AudioEngineRealTests
         var act = () => engine.InitializeAsync(config);
         await act.Should().NotThrowAsync();
     }
+
+    // ------------------------------------------------------------------ //
+    // PlayClipAsync
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task PlayClipAsync_NotInitialized_ShouldThrow()
+    {
+        var (engine, _, _) = Create();
+        var clip = new AudioClip { Name = "Test", FilePath = "/test.wav" };
+
+        var act = () => engine.PlayClipAsync(clip);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task PlayClipAsync_NullClip_ShouldThrow()
+    {
+        var (engine, _, _) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var act = () => engine.PlayClipAsync(null!);
+
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task PlayClipAsync_FileNotCached_ShouldNotThrow()
+    {
+        var (engine, _, _) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var clip = new AudioClip { Name = "Missing", FilePath = "/missing.wav" };
+
+        // Should log warning but not throw
+        var act = () => engine.PlayClipAsync(clip);
+        await act.Should().NotThrowAsync();
+
+        // No voice should be allocated
+        engine.ActiveVoices.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PlayClipAsync_CachedFile_ShouldAllocateVoice()
+    {
+        var (engine, _, cache) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        // Create a temp WAV file and cache it
+        var tempFile = CreateTempWavFile();
+        try
+        {
+            await cache.PreloadAsync([tempFile]);
+
+            var clip = new AudioClip { Name = "Test", FilePath = tempFile, BusName = "Main" };
+            await engine.PlayClipAsync(clip);
+
+            engine.ActiveVoices.Should().Be(1);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task PlayClipAsync_MultipleClips_ShouldTrackActiveVoices()
+    {
+        var (engine, _, cache) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var tempFile = CreateTempWavFile();
+        try
+        {
+            await cache.PreloadAsync([tempFile]);
+
+            for (int i = 0; i < 3; i++)
+            {
+                var clip = new AudioClip { Name = $"Clip {i}", FilePath = tempFile, BusName = "Main" };
+                await engine.PlayClipAsync(clip);
+            }
+
+            engine.ActiveVoices.Should().Be(3);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task PlayClipAsync_WithVolumeAndFades_ShouldNotThrow()
+    {
+        var (engine, _, cache) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var tempFile = CreateTempWavFile();
+        try
+        {
+            await cache.PreloadAsync([tempFile]);
+
+            var clip = new AudioClip
+            {
+                Name = "Faded",
+                FilePath = tempFile,
+                BusName = "Main",
+                Volume = 0.75,
+                FadeInSeconds = 0.1,
+                FadeOutSeconds = 0.2,
+            };
+
+            var act = () => engine.PlayClipAsync(clip);
+            await act.Should().NotThrowAsync();
+            engine.ActiveVoices.Should().Be(1);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // StopAllAsync
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task StopAllAsync_NotInitialized_ShouldThrow()
+    {
+        var (engine, _, _) = Create();
+
+        var act = () => engine.StopAllAsync();
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task StopAllAsync_ShouldReleaseAllVoices()
+    {
+        var (engine, _, cache) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var tempFile = CreateTempWavFile();
+        try
+        {
+            await cache.PreloadAsync([tempFile]);
+
+            for (int i = 0; i < 5; i++)
+            {
+                var clip = new AudioClip { Name = $"Clip {i}", FilePath = tempFile, BusName = "Main" };
+                await engine.PlayClipAsync(clip);
+            }
+
+            engine.ActiveVoices.Should().Be(5);
+
+            await engine.StopAllAsync();
+
+            engine.ActiveVoices.Should().Be(0);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // ShutdownAsync — voice pool
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task ShutdownAsync_ShouldStopAllVoices()
+    {
+        var (engine, _, cache) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var tempFile = CreateTempWavFile();
+        try
+        {
+            await cache.PreloadAsync([tempFile]);
+
+            var clip = new AudioClip { Name = "Test", FilePath = tempFile, BusName = "Main" };
+            await engine.PlayClipAsync(clip);
+            engine.ActiveVoices.Should().Be(1);
+
+            await engine.ShutdownAsync();
+
+            engine.ActiveVoices.Should().Be(0);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Helpers
+    // ------------------------------------------------------------------ //
+
+    /// <summary>
+    /// Creates a minimal valid WAV file in the temp directory.
+    /// Returns the full path to the file.
+    /// </summary>
+    private static string CreateTempWavFile(int sampleCount = 4800, int sampleRate = 48000)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}.wav");
+        var format = new NAudio.Wave.WaveFormat(sampleRate, 16, 2);
+        using var writer = new NAudio.Wave.WaveFileWriter(path, format);
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float sample = MathF.Sin(2 * MathF.PI * 440 * i / sampleRate);
+            writer.WriteSample(sample); // Left
+            writer.WriteSample(sample); // Right
+        }
+
+        return path;
+    }
 }

@@ -5,14 +5,15 @@ namespace LiveCompanion.EngineReal;
 
 /// <summary>
 /// Real audio engine backed by ASIO through <see cref="IAsioInterop"/>.
-/// Phase 4 scope: driver detection, initialization, buffer-size query, bus mapping, and shutdown.
-/// Phase 5 will add <see cref="PlayClipAsync"/> and <see cref="StopAllAsync"/>.
+/// Manages a <see cref="VoicePool"/> for multi-voice PCM playback with volume and fade ramping.
+/// Audio clips are decoded and cached by <see cref="AudioCache"/>, then played through the voice pool.
 /// </summary>
 public sealed class AudioEngineReal : IAudioEngine
 {
     private readonly ILogService _log;
     private readonly IAsioInterop _asio;
     private readonly AudioCache _cache;
+    private readonly VoicePool _voicePool;
 
     private volatile bool _initialized;
     private AudioConfig? _config;
@@ -26,11 +27,21 @@ public sealed class AudioEngineReal : IAudioEngine
     /// <summary>Buffer sizes computed from the ASIO driver capabilities.</summary>
     private IReadOnlyList<int> _supportedBufferSizes = [];
 
+    /// <summary>Number of currently active (playing) voices.</summary>
+    public int ActiveVoices => _voicePool.ActiveCount;
+
+    /// <summary>
+    /// The voice pool used for multi-voice PCM playback.
+    /// Exposed for DI wiring (e.g. <c>hasActiveVoices</c> delegate).
+    /// </summary>
+    public VoicePool VoicePool => _voicePool;
+
     public AudioEngineReal(ILogService log, IAsioInterop asio, AudioCache cache)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _asio = asio ?? throw new ArgumentNullException(nameof(asio));
         _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _voicePool = new VoicePool(log);
     }
 
     // ------------------------------------------------------------------ //
@@ -115,16 +126,53 @@ public sealed class AudioEngineReal : IAudioEngine
     }
 
     // ------------------------------------------------------------------ //
-    // IAudioEngine — playback (Phase 5 stubs)
+    // IAudioEngine — playback
     // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
     public Task PlayClipAsync(AudioClip clip)
-        => throw new NotImplementedException("PlayClipAsync will be implemented in Phase 5 (US-AUD-05).");
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+        ThrowIfNotInitialized();
+
+        var cached = _cache.Get(clip.FilePath);
+        if (cached is null)
+        {
+            _log.Warn(LogSource.EngineReal,
+                $"[AudioEngine] Clip '{clip.Name}' not in cache (path='{clip.FilePath}') — skipped.");
+            return Task.CompletedTask;
+        }
+
+        bool allocated = _voicePool.TryAllocate(
+            cached,
+            clip.BusName,
+            (float)clip.Volume,
+            clip.FadeInSeconds,
+            clip.FadeOutSeconds);
+
+        if (allocated)
+        {
+            _log.Debug(LogSource.EngineReal,
+                $"[AudioEngine] Playing '{clip.Name}' on bus '{clip.BusName}' " +
+                $"vol={clip.Volume:F2} — active voices={_voicePool.ActiveCount}");
+        }
+        else
+        {
+            _log.Warn(LogSource.EngineReal,
+                $"[AudioEngine] Voice limit reached — clip '{clip.Name}' dropped.");
+        }
+
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc/>
     public Task StopAllAsync()
-        => throw new NotImplementedException("StopAllAsync will be implemented in Phase 5 (US-AUD-05).");
+    {
+        ThrowIfNotInitialized();
+        _voicePool.StopAll();
+        _log.Debug(LogSource.EngineReal, "[AudioEngine] StopAll — all voices stopped.");
+        return Task.CompletedTask;
+    }
 
     // ------------------------------------------------------------------ //
     // IAudioEngine — lifecycle
@@ -133,6 +181,7 @@ public sealed class AudioEngineReal : IAudioEngine
     /// <inheritdoc/>
     public Task ShutdownAsync()
     {
+        _voicePool.StopAll();
         _asio.CloseDriver();
         _cache.Clear();
         _busChannelMap.Clear();
@@ -278,5 +327,12 @@ public sealed class AudioEngineReal : IAudioEngine
             i--;
 
         return i < text.Length - 1 && int.TryParse(text.AsSpan(i + 1), out number);
+    }
+
+    private void ThrowIfNotInitialized()
+    {
+        if (!_initialized)
+            throw new InvalidOperationException(
+                "AudioEngineReal is not initialized. Call InitializeAsync first.");
     }
 }

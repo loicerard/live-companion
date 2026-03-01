@@ -105,24 +105,31 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAsioInterop, AsioInterop>();
         services.AddSingleton<AudioCache>();
 
-        services.AddSingleton<IAudioEngine, AudioEngineReal>();
+        // AudioEngineReal enregistré en tant que type concret ET en tant que IAudioEngine.
+        // L'enregistrement concret est nécessaire pour que le TimelineSchedulerReal
+        // puisse accéder à VoicePool.ActiveCount (absent de IAudioEngine).
+        services.AddSingleton<AudioEngineReal>();
+        services.AddSingleton<IAudioEngine>(sp
+            => sp.GetRequiredService<AudioEngineReal>());
+
         services.AddSingleton<IMidiEngine, MidiEngineReal>();
         services.AddSingleton<ITransportController, TransportControllerReal>();
         services.AddSingleton<IProjectStore, ProjectStoreReal>();
 
         // TimelineSchedulerReal requires the same wiring as Mock:
         // - ILogService for unified logging
-        // - hasActiveVoices delegate (always false for now — Phase 5 will add real check)
+        // - hasActiveVoices delegate wired to AudioEngineReal.VoicePool.ActiveCount > 0
         // - IAudioEngine for triggering AudioClips at timeline positions
         // - IMidiEngine for sending MidiEvents at timeline positions
         services.AddSingleton<ITimelineScheduler>(sp =>
         {
             var log = sp.GetRequiredService<ILogService>();
+            var audioReal = sp.GetRequiredService<AudioEngineReal>();
             var audioEngine = sp.GetRequiredService<IAudioEngine>();
             var midiEngine = sp.GetRequiredService<IMidiEngine>();
             return new TimelineSchedulerReal(
                 log,
-                () => false, // Phase 5: wire to VoicePool.ActiveCount > 0
+                () => audioReal.ActiveVoices > 0,
                 audioEngine,
                 midiEngine);
         });
