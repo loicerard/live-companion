@@ -4,32 +4,279 @@ using LiveCompanion.Core.Models;
 namespace LiveCompanion.EngineReal;
 
 /// <summary>
-/// Implémentation réelle du moteur audio (ASIO).
-/// Stub : toutes les méthodes lèvent <see cref="NotImplementedException"/>.
+/// Real audio engine backed by ASIO through <see cref="IAsioInterop"/>.
+/// Phase 4 scope: driver detection, initialization, buffer-size query, bus mapping, and shutdown.
+/// Phase 5 will add <see cref="PlayClipAsync"/> and <see cref="StopAllAsync"/>.
 /// </summary>
 public sealed class AudioEngineReal : IAudioEngine
 {
-    /// <inheritdoc/>
-    public Task InitializeAsync(AudioConfig config)
-        => throw new NotImplementedException("TODO: initialiser le driver ASIO réel.");
+    private readonly ILogService _log;
+    private readonly IAsioInterop _asio;
+    private readonly AudioCache _cache;
+
+    private volatile bool _initialized;
+    private AudioConfig? _config;
+
+    /// <summary>
+    /// Bus mappings resolved during initialization.
+    /// Key = logical bus name, Value = (left channel index, right channel index).
+    /// </summary>
+    private readonly Dictionary<string, (int Left, int Right)> _busChannelMap = new();
+
+    /// <summary>Buffer sizes computed from the ASIO driver capabilities.</summary>
+    private IReadOnlyList<int> _supportedBufferSizes = [];
+
+    public AudioEngineReal(ILogService log, IAsioInterop asio, AudioCache cache)
+    {
+        _log = log ?? throw new ArgumentNullException(nameof(log));
+        _asio = asio ?? throw new ArgumentNullException(nameof(asio));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+    }
+
+    // ------------------------------------------------------------------ //
+    // IAudioEngine — detection & configuration
+    // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
     public IReadOnlyList<string> GetAvailableDrivers()
-        => throw new NotImplementedException("TODO: énumérer les drivers ASIO installés.");
+    {
+        try
+        {
+            var drivers = _asio.GetDriverNames();
+            _log.Debug(LogSource.EngineReal, $"[AudioEngine] Found {drivers.Count} ASIO driver(s).");
+            return drivers;
+        }
+        catch (Exception ex)
+        {
+            _log.Warn(LogSource.EngineReal, $"[AudioEngine] Cannot enumerate ASIO drivers: {ex.Message}");
+            return [];
+        }
+    }
 
     /// <inheritdoc/>
     public IReadOnlyList<int> GetSupportedBufferSizes()
-        => throw new NotImplementedException("TODO: interroger le driver actif pour les tailles de buffer.");
+    {
+        if (_supportedBufferSizes.Count > 0)
+            return _supportedBufferSizes;
+
+        if (!_asio.IsDriverOpen)
+            return [];
+
+        try
+        {
+            var info = _asio.GetBufferInfo();
+            _supportedBufferSizes = ComputeBufferSizes(info);
+            return _supportedBufferSizes;
+        }
+        catch (Exception ex)
+        {
+            _log.Warn(LogSource.EngineReal, $"[AudioEngine] Cannot query buffer sizes: {ex.Message}");
+            return [];
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task InitializeAsync(AudioConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        if (string.IsNullOrWhiteSpace(config.DriverName))
+            throw new ArgumentException("DriverName must not be empty.", nameof(config));
+
+        // Shutdown previous session if any
+        if (_initialized)
+            await ShutdownAsync().ConfigureAwait(false);
+
+        _log.Info(LogSource.EngineReal, $"[AudioEngine] Initializing — driver='{config.DriverName}', buffer={config.BufferSize}");
+
+        // Open ASIO driver
+        _asio.OpenDriver(config.DriverName);
+
+        // Refresh supported buffer sizes from the newly opened driver
+        _supportedBufferSizes = [];
+        var bufferSizes = GetSupportedBufferSizes();
+
+        if (bufferSizes.Count > 0 && !bufferSizes.Contains(config.BufferSize))
+        {
+            _log.Warn(LogSource.EngineReal,
+                $"[AudioEngine] Requested buffer size {config.BufferSize} is not supported. " +
+                $"Available: {string.Join(", ", bufferSizes)}");
+        }
+
+        // Resolve bus mappings → ASIO channel pairs
+        ResolveBusMappings(config);
+
+        _config = config;
+        _initialized = true;
+
+        _log.Info(LogSource.EngineReal,
+            $"[AudioEngine] Initialized — outputs={_asio.OutputChannelCount}, " +
+            $"buses={_busChannelMap.Count}, bufferSizes=[{string.Join(',', bufferSizes)}]");
+    }
+
+    // ------------------------------------------------------------------ //
+    // IAudioEngine — playback (Phase 5 stubs)
+    // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
     public Task PlayClipAsync(AudioClip clip)
-        => throw new NotImplementedException("TODO: déclencher la lecture du clip via le moteur audio.");
+        => throw new NotImplementedException("PlayClipAsync will be implemented in Phase 5 (US-AUD-05).");
 
     /// <inheritdoc/>
     public Task StopAllAsync()
-        => throw new NotImplementedException("TODO: arrêter toutes les lectures en cours.");
+        => throw new NotImplementedException("StopAllAsync will be implemented in Phase 5 (US-AUD-05).");
+
+    // ------------------------------------------------------------------ //
+    // IAudioEngine — lifecycle
+    // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
     public Task ShutdownAsync()
-        => throw new NotImplementedException("TODO: libérer les ressources du driver audio.");
+    {
+        _asio.CloseDriver();
+        _cache.Clear();
+        _busChannelMap.Clear();
+        _supportedBufferSizes = [];
+        _config = null;
+        _initialized = false;
+
+        _log.Info(LogSource.EngineReal, "[AudioEngine] Shutdown complete.");
+        return Task.CompletedTask;
+    }
+
+    // ------------------------------------------------------------------ //
+    // Helpers
+    // ------------------------------------------------------------------ //
+
+    /// <summary>
+    /// Computes the list of valid buffer sizes from the ASIO driver's capabilities.
+    /// </summary>
+    public static IReadOnlyList<int> ComputeBufferSizes(AsioBufferInfo info)
+    {
+        if (info.MinSize <= 0 || info.MaxSize <= 0 || info.MinSize > info.MaxSize)
+            return [info.PreferredSize > 0 ? info.PreferredSize : 256];
+
+        var sizes = new List<int>();
+
+        if (info.Granularity == -1)
+        {
+            // Power-of-two increments
+            for (int s = info.MinSize; s <= info.MaxSize; s *= 2)
+                sizes.Add(s);
+        }
+        else if (info.Granularity > 0)
+        {
+            // Linear increments
+            for (int s = info.MinSize; s <= info.MaxSize; s += info.Granularity)
+                sizes.Add(s);
+        }
+        else
+        {
+            // Granularity == 0 → only the preferred size is valid
+            sizes.Add(info.PreferredSize > 0 ? info.PreferredSize : info.MinSize);
+        }
+
+        return sizes;
+    }
+
+    /// <summary>
+    /// Resolves logical bus names from <see cref="AudioConfig.BusMappings"/> to ASIO output channel pairs.
+    /// Falls back to sequential pairs (0-1, 2-3, …) when output names don't match.
+    /// </summary>
+    private void ResolveBusMappings(AudioConfig config)
+    {
+        _busChannelMap.Clear();
+
+        int outputCount = _asio.OutputChannelCount;
+
+        // Build a lookup: channel name → channel index
+        var channelLookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < outputCount; i++)
+        {
+            var name = _asio.GetOutputChannelName(i);
+            channelLookup[name] = i;
+        }
+
+        int nextPair = 0;
+        foreach (var (busName, outputName) in config.BusMappings)
+        {
+            if (TryResolveChannelPair(outputName, channelLookup, out int left, out int right))
+            {
+                _busChannelMap[busName] = (left, right);
+            }
+            else
+            {
+                // Fallback: assign sequential stereo pairs
+                left = nextPair * 2;
+                right = left + 1;
+                if (right < outputCount)
+                {
+                    _busChannelMap[busName] = (left, right);
+                    nextPair++;
+                }
+                else
+                {
+                    _log.Warn(LogSource.EngineReal,
+                        $"[AudioEngine] Not enough outputs for bus '{busName}' — skipped.");
+                }
+            }
+
+            if (_busChannelMap.ContainsKey(busName))
+            {
+                var (l, r) = _busChannelMap[busName];
+                _log.Debug(LogSource.EngineReal,
+                    $"[AudioEngine] Bus '{busName}' → channels ({l}, {r})");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Tries to match an output name like "Output 1-2" to a pair of channel indices.
+    /// Supports patterns: "Output 1-2", "Ch 3-4", or matching the first channel by exact name.
+    /// </summary>
+    private static bool TryResolveChannelPair(
+        string outputName,
+        Dictionary<string, int> channelLookup,
+        out int left,
+        out int right)
+    {
+        left = right = -1;
+
+        // Try to parse "Output X-Y" pattern (1-based in UI, 0-based internally)
+        var parts = outputName.Split('-');
+        if (parts.Length == 2)
+        {
+            var leftPart = parts[0].Trim();
+            var rightPart = parts[1].Trim();
+
+            // Extract trailing number from the left part (e.g. "Output 1" → 1)
+            if (TryExtractTrailingNumber(leftPart, out int leftNum)
+                && int.TryParse(rightPart, out int rightNum))
+            {
+                left = leftNum - 1;   // convert to 0-based
+                right = rightNum - 1;
+                return left >= 0 && right >= 0;
+            }
+        }
+
+        // Fallback: try to find the channel by exact name
+        if (channelLookup.TryGetValue(outputName, out int idx))
+        {
+            left = idx;
+            right = idx + 1;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryExtractTrailingNumber(string text, out int number)
+    {
+        number = 0;
+        int i = text.Length - 1;
+        while (i >= 0 && char.IsDigit(text[i]))
+            i--;
+
+        return i < text.Length - 1 && int.TryParse(text.AsSpan(i + 1), out number);
+    }
 }

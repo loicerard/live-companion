@@ -101,6 +101,10 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddRealEngines(this IServiceCollection services)
     {
+        // ASIO abstraction + audio cache — required by AudioEngineReal
+        services.AddSingleton<IAsioInterop, AsioInterop>();
+        services.AddSingleton<AudioCache>();
+
         services.AddSingleton<IAudioEngine, AudioEngineReal>();
         services.AddSingleton<IMidiEngine, MidiEngineReal>();
         services.AddSingleton<ITransportController, TransportControllerReal>();
