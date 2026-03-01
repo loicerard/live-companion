@@ -1,25 +1,35 @@
 using System.Windows;
+using LiveCompanion.Core.Interfaces;
 using LiveCompanion.UI.ViewModels;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LiveCompanion.UI;
 
 public partial class App : Application
 {
-    /// <summary>
-    /// Mode moteur actuel. Changer en <see cref="EngineMode.Real"/> quand les moteurs réels seront prêts.
-    /// </summary>
-    private const EngineMode CurrentEngineMode = EngineMode.Mock;
-
     public static ServiceProvider Services { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .AddCommandLine(e.Args)
+            .Build();
+
+        var engineMode = ResolveEngineMode(configuration);
+
         var serviceCollection = new ServiceCollection();
-        ConfigureServices(serviceCollection);
+        serviceCollection.AddSingleton<IConfiguration>(configuration);
+        serviceCollection.AddEngines(engineMode);
+        serviceCollection.AddViewModels();
         Services = serviceCollection.BuildServiceProvider();
+
+        var log = Services.GetRequiredService<ILogService>();
+        log.Info(LogSource.UI, $"Live Companion started — EngineMode={engineMode}");
 
         var mainWindow = new MainWindow
         {
@@ -28,9 +38,20 @@ public partial class App : Application
         mainWindow.Show();
     }
 
-    private static void ConfigureServices(IServiceCollection services)
+    /// <summary>
+    /// Résout le mode moteur depuis la configuration (appsettings.json)
+    /// avec possibilité d'override via l'argument CLI <c>--EngineMode=Real</c>.
+    /// </summary>
+    private static EngineMode ResolveEngineMode(IConfiguration configuration)
     {
-        services.AddEngines(CurrentEngineMode);
-        services.AddViewModels();
+        var value = configuration["EngineMode"];
+
+        if (!string.IsNullOrWhiteSpace(value)
+            && Enum.TryParse<EngineMode>(value, ignoreCase: true, out var parsed))
+        {
+            return parsed;
+        }
+
+        return EngineMode.Mock;
     }
 }

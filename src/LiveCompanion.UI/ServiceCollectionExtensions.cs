@@ -1,4 +1,5 @@
 using LiveCompanion.Core.Interfaces;
+using LiveCompanion.Core.Services;
 using LiveCompanion.EngineMock;
 using LiveCompanion.EngineReal;
 using LiveCompanion.UI.ViewModels;
@@ -18,6 +19,9 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         EngineMode mode)
     {
+        // Logging unifié — singleton partagé par tous les moteurs et ViewModels
+        services.AddSingleton<ILogService, DebugLogService>();
+
         return mode switch
         {
             EngineMode.Mock => services.AddMockEngines(),
@@ -75,15 +79,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProjectStore, ProjectStoreMock>();
 
         // TimelineSchedulerMock nécessite :
+        // - ILogService pour le logging unifié
         // - un délégué Func<bool> hasActiveVoices (câblé à AudioEngineMock.ActiveVoices > 0)
         // - IAudioEngine pour déclencher les AudioClips aux bonnes positions
         // - IMidiEngine pour envoyer les MidiEvents aux bonnes positions
         services.AddSingleton<ITimelineScheduler>(sp =>
         {
+            var log = sp.GetRequiredService<ILogService>();
             var audioMock = sp.GetRequiredService<AudioEngineMock>();
             var audioEngine = sp.GetRequiredService<IAudioEngine>();
             var midiEngine = sp.GetRequiredService<IMidiEngine>();
             return new TimelineSchedulerMock(
+                log,
                 () => audioMock.ActiveVoices > 0,
                 audioEngine,
                 midiEngine);

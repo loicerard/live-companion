@@ -1,6 +1,5 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
-using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -20,11 +19,17 @@ public sealed class ProjectStoreMock : IProjectStore
         Converters = { new JsonStringEnumConverter() },
     };
 
+    private readonly ILogService _log;
     private readonly object _lock = new();
     private readonly Dictionary<string, string> _store = []; // path → JSON
     private readonly Dictionary<Guid, Song> _songs = [];     // id → Song
     private readonly Dictionary<Guid, Playlist> _playlists = []; // id → Playlist
     private AppSettings _settings = new();
+
+    public ProjectStoreMock(ILogService log)
+    {
+        _log = log ?? throw new ArgumentNullException(nameof(log));
+    }
 
     // ------------------------------------------------------------------ //
     // Propriété utilitaire
@@ -54,12 +59,12 @@ public sealed class ProjectStoreMock : IProjectStore
 
         if (json is null)
         {
-            Debug.WriteLine($"[ProjectStoreMock] Load '{path}' → not found");
+            _log.Debug(LogSource.EngineMock, $"[ProjectStore] Load '{path}' → not found");
             return Task.FromResult<Song?>(null);
         }
 
         var song = JsonSerializer.Deserialize<Song>(json, _jsonOptions);
-        Debug.WriteLine($"[ProjectStoreMock] Load '{path}' → '{song?.Title}'");
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] Load '{path}' → '{song?.Title}'");
         return Task.FromResult<Song?>(song);
     }
 
@@ -75,7 +80,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             _store[path] = json;
 
-        Debug.WriteLine($"[ProjectStoreMock] Save '{path}' ← '{song.Title}' ({song.Sections.Count} sections)");
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] Save '{path}' ← '{song.Title}' ({song.Sections.Count} sections)");
         return Task.CompletedTask;
     }
 
@@ -96,7 +101,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             _songs[song.Id] = song;
 
-        Debug.WriteLine($"[ProjectStoreMock] CreateNew '{title}' — {song.Sections.Count} sections par défaut");
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] CreateNew '{title}' — {song.Sections.Count} sections par défaut");
         return song;
     }
 
@@ -117,7 +122,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             _songs[song.Id] = song;
 
-        Debug.WriteLine($"[ProjectStoreMock] Update '{song.Title}' — " +
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] Update '{song.Title}' — " +
                         $"{song.Sections.Count} sections, " +
                         $"{song.AudioClips.Count} clips, " +
                         $"{song.MidiEvents.Count} MIDI events");
@@ -130,7 +135,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             removed = _songs.Remove(songId);
 
-        Debug.WriteLine($"[ProjectStoreMock] Delete '{songId}' → {(removed ? "OK" : "not found")}");
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] Delete '{songId}' → {(removed ? "OK" : "not found")}");
         return removed;
     }
 
@@ -146,7 +151,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             _playlists[playlist.Id] = playlist;
 
-        Debug.WriteLine($"[ProjectStoreMock] CreatePlaylist '{name}'");
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] CreatePlaylist '{name}'");
         return playlist;
     }
 
@@ -165,7 +170,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             _playlists[playlist.Id] = playlist;
 
-        Debug.WriteLine($"[ProjectStoreMock] UpdatePlaylist '{playlist.Name}' — {playlist.SongIds.Count} songs");
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] UpdatePlaylist '{playlist.Name}' — {playlist.SongIds.Count} songs");
     }
 
     /// <inheritdoc/>
@@ -175,7 +180,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             removed = _playlists.Remove(playlistId);
 
-        Debug.WriteLine($"[ProjectStoreMock] DeletePlaylist '{playlistId}' → {(removed ? "OK" : "not found")}");
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] DeletePlaylist '{playlistId}' → {(removed ? "OK" : "not found")}");
         return removed;
     }
 
@@ -198,7 +203,7 @@ public sealed class ProjectStoreMock : IProjectStore
         lock (_lock)
             _settings = settings;
 
-        Debug.WriteLine("[ProjectStoreMock] SaveSettings — " +
+        _log.Debug(LogSource.EngineMock, "[ProjectStore] SaveSettings — " +
                         $"audio={settings.AudioConfig?.DriverName ?? "null"}, " +
                         $"midi ports={settings.MidiConfig?.SelectedPorts?.Count ?? 0}");
     }

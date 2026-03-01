@@ -1,6 +1,5 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
-using System.Diagnostics;
 
 namespace LiveCompanion.EngineMock;
 
@@ -12,8 +11,14 @@ namespace LiveCompanion.EngineMock;
 /// </summary>
 public sealed class TransportControllerMock : ITransportController
 {
+    private readonly ILogService _log;
     private readonly object _lock = new();
     private TransportState _state = TransportState.Stopped;
+
+    public TransportControllerMock(ILogService log)
+    {
+        _log = log ?? throw new ArgumentNullException(nameof(log));
+    }
 
     // ------------------------------------------------------------------ //
     // ITransportController
@@ -42,7 +47,7 @@ public sealed class TransportControllerMock : ITransportController
             raised = _state;
         }
 
-        Debug.WriteLine($"[TransportControllerMock] State → {raised}");
+        _log.Debug(LogSource.EngineMock, $"[Transport] State → {raised}");
         StateChanged?.Invoke(this, raised!.Value);
         return Task.CompletedTask;
     }
@@ -61,7 +66,7 @@ public sealed class TransportControllerMock : ITransportController
             raised = _state;
         }
 
-        Debug.WriteLine($"[TransportControllerMock] State → {raised}");
+        _log.Debug(LogSource.EngineMock, $"[Transport] State → {raised}");
         StateChanged?.Invoke(this, raised!.Value);
         return Task.CompletedTask;
     }
@@ -80,7 +85,7 @@ public sealed class TransportControllerMock : ITransportController
             raised = _state;
         }
 
-        Debug.WriteLine($"[TransportControllerMock] State → {raised}");
+        _log.Debug(LogSource.EngineMock, $"[Transport] State → {raised}");
         StateChanged?.Invoke(this, raised!.Value);
         return Task.CompletedTask;
     }
