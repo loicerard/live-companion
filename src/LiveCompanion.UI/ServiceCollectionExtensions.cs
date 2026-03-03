@@ -114,7 +114,15 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IMidiEngine, MidiEngineReal>();
         services.AddSingleton<ITransportController, TransportControllerReal>();
-        services.AddSingleton<IProjectStore, ProjectStoreReal>();
+        services.AddSingleton<IProjectStore>(sp =>
+        {
+            var log = sp.GetRequiredService<ILogService>();
+            var settingsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "LiveCompanion",
+                "settings.json");
+            return new ProjectStoreReal(log, settingsPath);
+        });
 
         // TimelineSchedulerReal requires the same wiring as Mock:
         // - ILogService for unified logging
