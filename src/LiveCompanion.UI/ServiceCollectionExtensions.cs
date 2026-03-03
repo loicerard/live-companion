@@ -4,6 +4,7 @@ using LiveCompanion.EngineMock;
 using LiveCompanion.EngineReal;
 using LiveCompanion.UI.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using System.IO;
 
 namespace LiveCompanion.UI;
 
