@@ -13,6 +13,7 @@ public sealed class AsioInterop : IAsioInterop
     private static readonly IReadOnlyList<int> StandardBufferSizes = [64, 128, 256, 512, 1024, 2048, 4096];
 
     private AsioOut? _asioOut;
+    private bool _isPlaying;
 
     /// <inheritdoc/>
     public IReadOnlyList<string> GetDriverNames()
@@ -41,6 +42,7 @@ public sealed class AsioInterop : IAsioInterop
     {
         if (_asioOut is not null)
         {
+            StopPlayback();
             _asioOut.Dispose();
             _asioOut = null;
         }
@@ -98,6 +100,41 @@ public sealed class AsioInterop : IAsioInterop
         ThrowIfNoDriver();
         return _asioOut!.AsioOutputChannelName(index);
     }
+
+    // ------------------------------------------------------------------ //
+    // Playback
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public void InitPlayback(IWaveProvider provider)
+    {
+        ThrowIfNoDriver();
+        ArgumentNullException.ThrowIfNull(provider);
+        _asioOut!.Init(provider);
+    }
+
+    /// <inheritdoc/>
+    public void Play()
+    {
+        ThrowIfNoDriver();
+        _asioOut!.Play();
+        _isPlaying = true;
+    }
+
+    /// <inheritdoc/>
+    public void StopPlayback()
+    {
+        if (_isPlaying && _asioOut is not null)
+        {
+            _asioOut.Stop();
+            _isPlaying = false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool IsPlaying => _isPlaying;
+
+    // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
     public void Dispose() => CloseDriver();

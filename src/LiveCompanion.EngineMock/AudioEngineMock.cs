@@ -61,6 +61,10 @@ public sealed class AudioEngineMock : IAudioEngine
     public IReadOnlyList<int> GetSupportedBufferSizes() => _fakeBufferSizes;
 
     /// <inheritdoc/>
+    public IReadOnlyList<string> GetAvailableOutputPairs() =>
+        ["Output 1-2", "Output 3-4", "Output 5-6", "Output 7-8"];
+
+    /// <inheritdoc/>
     public Task PlayClipAsync(AudioClip clip)
     {
         ArgumentNullException.ThrowIfNull(clip);

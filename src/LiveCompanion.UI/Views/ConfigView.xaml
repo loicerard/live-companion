@@ -189,11 +189,11 @@
                                                FontSize="13"
                                                Margin="8,0"
                                                VerticalAlignment="Center" />
-                                    <TextBox Grid.Column="2"
-                                             Text="{Binding OutputName, UpdateSourceTrigger=PropertyChanged}"
-                                             FontSize="13"
-                                             MinWidth="150"
-                                             Padding="6,4" />
+                                    <ComboBox Grid.Column="2"
+                                              ItemsSource="{Binding DataContext.AvailableOutputPairs, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                              SelectedItem="{Binding OutputName}"
+                                              IsEditable="True"
+                                              Style="{StaticResource ConfigComboStyle}" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
