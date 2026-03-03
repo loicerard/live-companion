@@ -25,6 +25,12 @@ public interface IAudioEngine
     IReadOnlyList<int> GetSupportedBufferSizes();
 
     /// <summary>
+    /// Retourne la liste des paires de sorties stéréo disponibles (ex: "Output 1-Output 2").
+    /// Nécessite un driver ouvert.
+    /// </summary>
+    IReadOnlyList<string> GetAvailableOutputPairs();
+
+    /// <summary>
     /// Déclenche la lecture d'un clip audio. La synchronisation suit le <see cref="SyncMode"/>
     /// du clip.
     /// </summary>

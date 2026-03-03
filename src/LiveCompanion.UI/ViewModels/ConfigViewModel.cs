@@ -19,6 +19,13 @@ public partial class ConfigViewModel : ViewModelBase
 
     public IReadOnlyList<int> AvailableBufferSizes { get; }
 
+    /// <summary>
+    /// Paires de sorties stéréo disponibles (ex: "Output 1-Output 2").
+    /// Rafraîchies après application de la config audio.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<string> _availableOutputPairs = [];
+
     [ObservableProperty]
     private string? _selectedDriver;
 
@@ -69,10 +76,16 @@ public partial class ConfigViewModel : ViewModelBase
         if (AvailableDrivers.Count > 0)
             SelectedDriver = AvailableDrivers[0];
 
+        // Charger les paires de sorties disponibles (peut être vide si pas de driver ouvert)
+        AvailableOutputPairs = _audioEngine.GetAvailableOutputPairs();
+
         // Bus mappings par défaut
-        BusMappings.Add(new BusMapping { BusName = "Main", OutputName = "Output 1-2" });
-        BusMappings.Add(new BusMapping { BusName = "Click", OutputName = "Output 3-4" });
-        BusMappings.Add(new BusMapping { BusName = "FX", OutputName = "Output 1-2" });
+        var defaultOutput = AvailableOutputPairs.Count > 0 ? AvailableOutputPairs[0] : "Output 1-2";
+        var clickOutput = AvailableOutputPairs.Count > 1 ? AvailableOutputPairs[1] : "Output 3-4";
+
+        BusMappings.Add(new BusMapping { BusName = "Main", OutputName = defaultOutput });
+        BusMappings.Add(new BusMapping { BusName = "Click", OutputName = clickOutput });
+        BusMappings.Add(new BusMapping { BusName = "FX", OutputName = defaultOutput });
 
         // Ports MIDI
         var ports = _midiEngine.GetAvailablePorts();
@@ -105,6 +118,9 @@ public partial class ConfigViewModel : ViewModelBase
         await _audioEngine.InitializeAsync(config);
         AudioInitialized = true;
         AudioStatusMessage = $"Audio initialisé — {SelectedDriver}, buffer {SelectedBufferSize}";
+
+        // Rafraîchir les sorties disponibles maintenant que le driver est ouvert
+        AvailableOutputPairs = _audioEngine.GetAvailableOutputPairs();
     }
 
     // ------------------------------------------------------------------ //

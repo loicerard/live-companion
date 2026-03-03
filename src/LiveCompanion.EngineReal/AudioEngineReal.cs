@@ -120,6 +120,10 @@ public sealed class AudioEngineReal : IAudioEngine
         _config = config;
         _initialized = true;
 
+        // Start ASIO playback callback — audio flows continuously,
+        // silence is output when no voices are active.
+        StartAsioPlayback(config.BufferSize);
+
         _log.Info(LogSource.EngineReal,
             $"[AudioEngine] Initialized — outputs={_asio.OutputChannelCount}, " +
             $"buses={_busChannelMap.Count}, bufferSizes=[{string.Join(',', bufferSizes)}]");
@@ -182,6 +186,7 @@ public sealed class AudioEngineReal : IAudioEngine
     public Task ShutdownAsync()
     {
         _voicePool.StopAll();
+        _asio.StopPlayback();
         _asio.CloseDriver();
         _cache.Clear();
         _busChannelMap.Clear();
@@ -194,8 +199,65 @@ public sealed class AudioEngineReal : IAudioEngine
     }
 
     // ------------------------------------------------------------------ //
+    // Output pair queries
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public IReadOnlyList<string> GetAvailableOutputPairs()
+    {
+        if (!_asio.IsDriverOpen)
+            return [];
+
+        var pairs = new List<string>();
+        int count = _asio.OutputChannelCount;
+
+        for (int i = 0; i + 1 < count; i += 2)
+        {
+            var left = _asio.GetOutputChannelName(i);
+            var right = _asio.GetOutputChannelName(i + 1);
+            pairs.Add($"{left}-{right}");
+        }
+
+        // Si nombre impair, ajouter le dernier canal seul
+        if (count % 2 != 0)
+        {
+            var last = _asio.GetOutputChannelName(count - 1);
+            pairs.Add(last);
+        }
+
+        return pairs.AsReadOnly();
+    }
+
+    // ------------------------------------------------------------------ //
     // Helpers
     // ------------------------------------------------------------------ //
+
+    /// <summary>
+    /// Initialise et démarre le callback de playback ASIO.
+    /// </summary>
+    private void StartAsioPlayback(int bufferSize)
+    {
+        try
+        {
+            var provider = new AsioOutputProvider(
+                _voicePool,
+                _busChannelMap,
+                _asio.OutputChannelCount,
+                sampleRate: 48000,
+                bufferSize: bufferSize);
+
+            _asio.InitPlayback(provider);
+            _asio.Play();
+
+            _log.Info(LogSource.EngineReal,
+                $"[AudioEngine] ASIO playback started — {_asio.OutputChannelCount} channels, buffer={bufferSize}");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(LogSource.EngineReal,
+                $"[AudioEngine] Failed to start ASIO playback: {ex.Message}");
+        }
+    }
 
     /// <summary>
     /// Computes the list of valid buffer sizes from the ASIO driver's capabilities.

@@ -17,6 +17,7 @@ internal sealed class FakeAsioInterop : IAsioInterop
     private readonly int _outputChannelCount;
 
     private bool _isOpen;
+    private bool _isPlaying;
 
     public FakeAsioInterop(
         IReadOnlyList<string>? driverNames = null,
@@ -43,6 +44,7 @@ internal sealed class FakeAsioInterop : IAsioInterop
 
     public void CloseDriver()
     {
+        StopPlayback();
         CloseDriverCallCount++;
         _isOpen = false;
     }
@@ -69,6 +71,11 @@ internal sealed class FakeAsioInterop : IAsioInterop
         if (!_isOpen) throw new InvalidOperationException("No driver open.");
         return $"Output {index + 1}";
     }
+
+    public void InitPlayback(NAudio.Wave.IWaveProvider provider) { }
+    public void Play() => _isPlaying = true;
+    public void StopPlayback() => _isPlaying = false;
+    public bool IsPlaying => _isPlaying;
 
     public void Dispose() => CloseDriver();
 }
@@ -519,6 +526,71 @@ public class AudioEngineRealTests
         {
             File.Delete(tempFile);
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // GetAvailableOutputPairs
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task GetAvailableOutputPairs_ShouldReturnStereoPairs()
+    {
+        var (engine, _, _) = Create(outputChannelCount: 8);
+        await engine.InitializeAsync(DefaultConfig);
+
+        var pairs = engine.GetAvailableOutputPairs();
+
+        pairs.Should().HaveCount(4);
+        pairs[0].Should().Be("Output 1-Output 2");
+        pairs[1].Should().Be("Output 3-Output 4");
+    }
+
+    [Fact]
+    public void GetAvailableOutputPairs_NoDriverOpen_ShouldReturnEmpty()
+    {
+        var (engine, _, _) = Create();
+
+        var pairs = engine.GetAvailableOutputPairs();
+
+        pairs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAvailableOutputPairs_OddChannelCount_ShouldIncludeLastSolo()
+    {
+        var (engine, _, _) = Create(outputChannelCount: 5);
+        await engine.InitializeAsync(DefaultConfig);
+
+        var pairs = engine.GetAvailableOutputPairs();
+
+        // 2 stereo pairs + 1 solo channel
+        pairs.Should().HaveCount(3);
+        pairs[2].Should().Be("Output 5");
+    }
+
+    // ------------------------------------------------------------------ //
+    // ASIO Playback wiring
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task InitializeAsync_ShouldStartPlayback()
+    {
+        var (engine, asio, _) = Create();
+
+        await engine.InitializeAsync(DefaultConfig);
+
+        asio.IsPlaying.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_ShouldStopPlayback()
+    {
+        var (engine, asio, _) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        await engine.ShutdownAsync();
+
+        asio.IsPlaying.Should().BeFalse();
     }
 
     // ------------------------------------------------------------------ //
