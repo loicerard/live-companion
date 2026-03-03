@@ -31,6 +31,10 @@ public partial class App : Application
         var log = Services.GetRequiredService<ILogService>();
         log.Info(LogSource.UI, $"Live Companion started — EngineMode={engineMode}");
 
+        // Démarrer la sauvegarde automatique
+        var autoSave = Services.GetRequiredService<IAutoSaveService>();
+        autoSave.Start();
+
         var mainWindow = new MainWindow
         {
             DataContext = Services.GetRequiredService<MainViewModel>()

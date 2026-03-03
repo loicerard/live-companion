@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="LiveCompanion.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LiveCompanion.Core\LiveCompanion.Core.csproj" />
   </ItemGroup>
 
