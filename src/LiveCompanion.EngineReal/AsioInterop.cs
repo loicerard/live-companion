@@ -101,6 +101,31 @@ public sealed class AsioInterop : IAsioInterop
         return _asioOut!.AsioOutputChannelName(index);
     }
 
+    /// <inheritdoc/>
+    public int SampleRate
+    {
+        get
+        {
+            ThrowIfNoDriver();
+            try
+            {
+                var driverField = typeof(AsioOut).GetField("driver", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (driverField?.GetValue(_asioOut) is { } driverExt)
+                {
+                    var method = driverExt.GetType().GetMethod("GetSampleRate");
+                    if (method?.Invoke(driverExt, null) is double rate && rate > 0)
+                        return (int)rate;
+                }
+            }
+            catch
+            {
+                // Reflection failed — fall through to default.
+            }
+
+            return 0;
+        }
+    }
+
     // ------------------------------------------------------------------ //
     // Playback
     // ------------------------------------------------------------------ //

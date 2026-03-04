@@ -44,6 +44,11 @@ public interface IAsioInterop : IDisposable
     /// <exception cref="InvalidOperationException">No driver is open.</exception>
     string GetOutputChannelName(int index);
 
+    /// <summary>
+    /// Returns the ASIO driver's current sample rate in Hz, or 0 if unknown.
+    /// </summary>
+    int SampleRate { get; }
+
     // ------------------------------------------------------------------ //
     // Playback
     // ------------------------------------------------------------------ //

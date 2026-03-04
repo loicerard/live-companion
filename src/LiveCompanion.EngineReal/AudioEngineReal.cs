@@ -237,26 +237,28 @@ public sealed class AudioEngineReal : IAudioEngine
     /// </summary>
     private void StartAsioPlayback(int bufferSize)
     {
-        try
-        {
-            var provider = new AsioOutputProvider(
-                _voicePool,
-                _busChannelMap,
-                _asio.OutputChannelCount,
-                sampleRate: 48000,
-                bufferSize: bufferSize);
+        // Query the driver's native sample rate; fall back to 48 kHz if unknown.
+        int sampleRate = _asio.SampleRate;
+        if (sampleRate <= 0)
+            sampleRate = 48000;
 
-            _asio.InitPlayback(provider);
-            _asio.Play();
+        _log.Debug(LogSource.EngineReal,
+            $"[AudioEngine] Using sample rate {sampleRate} Hz, buffer={bufferSize}, " +
+            $"buses=[{string.Join(", ", _busChannelMap.Keys)}]");
 
-            _log.Info(LogSource.EngineReal,
-                $"[AudioEngine] ASIO playback started — {_asio.OutputChannelCount} channels, buffer={bufferSize}");
-        }
-        catch (Exception ex)
-        {
-            _log.Error(LogSource.EngineReal,
-                $"[AudioEngine] Failed to start ASIO playback: {ex.Message}");
-        }
+        var provider = new AsioOutputProvider(
+            _voicePool,
+            _busChannelMap,
+            _asio.OutputChannelCount,
+            sampleRate: sampleRate,
+            bufferSize: bufferSize);
+
+        _asio.InitPlayback(provider);
+        _asio.Play();
+
+        _log.Info(LogSource.EngineReal,
+            $"[AudioEngine] ASIO playback started — {_asio.OutputChannelCount} channels, " +
+            $"{sampleRate} Hz, buffer={bufferSize}");
     }
 
     /// <summary>
@@ -342,10 +344,11 @@ public sealed class AudioEngineReal : IAudioEngine
     }
 
     /// <summary>
-    /// Tries to match an output name like "Output 1-2" to a pair of channel indices.
-    /// Supports patterns: "Output 1-2", "Ch 3-4", or matching the first channel by exact name.
+    /// Tries to match an output name like "Output 1-2" or "Output 1-Output 2" to a pair of channel indices.
+    /// Supports patterns: "Output 1-2", "Output 1-Output 2", "Ch 3-4",
+    /// channel-name lookup, or matching the first channel by exact name.
     /// </summary>
-    private static bool TryResolveChannelPair(
+    internal static bool TryResolveChannelPair(
         string outputName,
         Dictionary<string, int> channelLookup,
         out int left,
@@ -353,20 +356,39 @@ public sealed class AudioEngineReal : IAudioEngine
     {
         left = right = -1;
 
-        // Try to parse "Output X-Y" pattern (1-based in UI, 0-based internally)
+        // Try to parse "Output X-Y" or "Output X-Output Y" patterns (1-based in UI, 0-based internally)
         var parts = outputName.Split('-');
-        if (parts.Length == 2)
+        if (parts.Length >= 2)
         {
             var leftPart = parts[0].Trim();
-            var rightPart = parts[1].Trim();
+            var rightPart = string.Join("-", parts.Skip(1)).Trim();
 
-            // Extract trailing number from the left part (e.g. "Output 1" → 1)
-            if (TryExtractTrailingNumber(leftPart, out int leftNum)
-                && int.TryParse(rightPart, out int rightNum))
+            if (TryExtractTrailingNumber(leftPart, out int leftNum))
             {
-                left = leftNum - 1;   // convert to 0-based
-                right = rightNum - 1;
-                return left >= 0 && right >= 0;
+                // "Output 1-2" — right part is just a number
+                if (int.TryParse(rightPart, out int rightNum))
+                {
+                    left = leftNum - 1;   // convert to 0-based
+                    right = rightNum - 1;
+                    return left >= 0 && right >= 0;
+                }
+
+                // "Output 1-Output 2" — right part is a full channel name
+                if (TryExtractTrailingNumber(rightPart, out rightNum))
+                {
+                    left = leftNum - 1;
+                    right = rightNum - 1;
+                    return left >= 0 && right >= 0;
+                }
+            }
+
+            // Try looking up both parts as channel names (e.g. "Analog L-Analog R")
+            if (channelLookup.TryGetValue(leftPart, out int leftIdx)
+                && channelLookup.TryGetValue(rightPart, out int rightIdx))
+            {
+                left = leftIdx;
+                right = rightIdx;
+                return true;
             }
         }
 
