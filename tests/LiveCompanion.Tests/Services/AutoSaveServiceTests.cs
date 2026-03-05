@@ -149,9 +149,9 @@ public class AutoSaveServiceTests : IDisposable
 
         // Should have saved (verify by loading)
         var expectedPath = Path.Combine(_tempFolder, $"{song.Id}.json");
-        var loaded = await _store.LoadAsync(expectedPath);
-        loaded.Should().NotBeNull();
-        loaded!.Title.Should().Be("Modified");
+        var loadResult = await _store.LoadAsync(expectedPath);
+        loadResult.Value.Should().NotBeNull();
+        loadResult.Value!.Title.Should().Be("Modified");
     }
 
     [Fact]

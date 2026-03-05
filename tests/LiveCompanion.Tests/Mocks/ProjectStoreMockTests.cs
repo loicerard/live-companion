@@ -109,25 +109,43 @@ public class ProjectStoreMockTests
             Sections = { new Section { Name = "Intro", Tempo = 140, BarCount = 8 } },
         };
 
-        await store.SaveAsync(song, "/fake/path.json");
-        var loaded = await store.LoadAsync("/fake/path.json");
+        var saveResult = await store.SaveAsync(song, "/fake/path.json");
+        saveResult.IsValid.Should().BeTrue();
 
-        loaded.Should().NotBeNull();
-        loaded!.Title.Should().Be("Saved Song");
-        loaded.Sections.Should().HaveCount(1);
+        var loadResult = await store.LoadAsync("/fake/path.json");
+        loadResult.Value.Should().NotBeNull();
+        loadResult.Value!.Title.Should().Be("Saved Song");
+        loadResult.Value.Sections.Should().HaveCount(1);
 
         // Deep copy — modifying loaded should not affect stored
-        loaded.Title = "Changed";
+        loadResult.Value.Title = "Changed";
         var reloaded = await store.LoadAsync("/fake/path.json");
-        reloaded!.Title.Should().Be("Saved Song");
+        reloaded.Value!.Title.Should().Be("Saved Song");
     }
 
     [Fact]
-    public async Task Load_NonExistentPath_ShouldReturnNull()
+    public async Task Load_NonExistentPath_ShouldReturnErrorResult()
     {
         var store = CreateStore();
         var result = await store.LoadAsync("/does/not/exist.json");
-        result.Should().BeNull();
+        result.Value.Should().BeNull();
+        result.Validation.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Save_InvalidSong_ShouldReturnErrors()
+    {
+        var store = CreateStore();
+        var song = new Song
+        {
+            Title = "Bad",
+            Sections = { new Section { Name = "X", Tempo = 0, BarCount = 0 } },
+        };
+
+        var result = await store.SaveAsync(song, "/fake/invalid.json");
+
+        result.IsValid.Should().BeFalse();
+        store.StoredPaths.Should().NotContain("/fake/invalid.json");
     }
 
     // ------------------------------------------------------------------ //
@@ -171,6 +189,58 @@ public class ProjectStoreMockTests
     {
         var store = CreateStore();
         store.DeletePlaylist(Guid.NewGuid()).Should().BeFalse();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Playlists — Persistence
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task SaveAndLoadPlaylists_ShouldRoundTrip()
+    {
+        var store = CreateStore();
+        var song = store.CreateNew("Test Song");
+        var playlist = store.CreatePlaylist("Concert");
+        playlist.SongIds.Add(song.Id);
+        store.UpdatePlaylist(playlist);
+
+        var path = "/fake/playlists.json";
+        var saveResult = await store.SavePlaylistsAsync(path);
+        saveResult.IsValid.Should().BeTrue();
+
+        var loadResult = await store.LoadPlaylistsAsync(path);
+        loadResult.Value.Should().NotBeNull();
+        loadResult.Value!.Should().HaveCount(1);
+        loadResult.Value[0].Name.Should().Be("Concert");
+    }
+
+    [Fact]
+    public async Task LoadPlaylists_NonExistent_ShouldReturnError()
+    {
+        var store = CreateStore();
+        var result = await store.LoadPlaylistsAsync("/fake/nope.json");
+        result.Value.Should().BeNull();
+        result.Validation.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LoadPlaylists_WithMissingSong_ShouldReturnWarning()
+    {
+        var store = CreateStore();
+        var song = store.CreateNew("Existing Song");
+        var playlist = store.CreatePlaylist("Orphan");
+        playlist.SongIds.Add(song.Id);
+        playlist.SongIds.Add(Guid.NewGuid()); // Référence un song inexistant
+        store.UpdatePlaylist(playlist);
+
+        var path = "/fake/playlists.json";
+        await store.SavePlaylistsAsync(path);
+
+        // Charger dans le même store — le song inexistant génère un warning
+        var result = await store.LoadPlaylistsAsync(path);
+
+        result.Value.Should().NotBeNull();
+        result.Validation.HasWarnings.Should().BeTrue();
     }
 
     // ------------------------------------------------------------------ //

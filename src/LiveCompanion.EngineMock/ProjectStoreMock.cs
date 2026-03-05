@@ -1,5 +1,6 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
+using LiveCompanion.Core.Validation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -49,9 +50,11 @@ public sealed class ProjectStoreMock : IProjectStore
     // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
-    public Task<Song?> LoadAsync(string path)
+    public Task<LoadResult<Song>> LoadAsync(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
 
         string? json;
         lock (_lock)
@@ -59,20 +62,49 @@ public sealed class ProjectStoreMock : IProjectStore
 
         if (json is null)
         {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
             _log.Debug(LogSource.EngineMock, $"[ProjectStore] Load '{path}' → not found");
-            return Task.FromResult<Song?>(null);
+            return Task.FromResult(new LoadResult<Song>(null, validation));
         }
 
-        var song = JsonSerializer.Deserialize<Song>(json, _jsonOptions);
-        _log.Debug(LogSource.EngineMock, $"[ProjectStore] Load '{path}' → '{song?.Title}'");
-        return Task.FromResult<Song?>(song);
+        Song? song;
+        try
+        {
+            song = JsonSerializer.Deserialize<Song>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé : {ex.Message}");
+            return Task.FromResult(new LoadResult<Song>(null, validation));
+        }
+
+        if (song is null)
+        {
+            validation.AddError("json", "Désérialisation a retourné null.");
+            return Task.FromResult(new LoadResult<Song>(null, validation));
+        }
+
+        var modelValidation = ModelValidator.ValidateSong(song);
+        if (!modelValidation.IsValid)
+            return Task.FromResult(new LoadResult<Song>(null, modelValidation));
+
+        validation.Merge(modelValidation);
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] Load '{path}' → '{song.Title}'");
+        return Task.FromResult(new LoadResult<Song>(song, validation));
     }
 
     /// <inheritdoc/>
-    public Task SaveAsync(Song song, string path)
+    public Task<ValidationResult> SaveAsync(Song song, string path)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = ModelValidator.ValidateSong(song);
+        if (!validation.IsValid)
+        {
+            _log.Warn(LogSource.EngineMock, $"[ProjectStore] Save '{path}' annulé — validation échouée");
+            return Task.FromResult(validation);
+        }
 
         song.LastModified = DateTime.UtcNow;
         var json = JsonSerializer.Serialize(song, _jsonOptions);
@@ -81,7 +113,7 @@ public sealed class ProjectStoreMock : IProjectStore
             _store[path] = json;
 
         _log.Debug(LogSource.EngineMock, $"[ProjectStore] Save '{path}' ← '{song.Title}' ({song.Sections.Count} sections)");
-        return Task.CompletedTask;
+        return Task.FromResult(validation);
     }
 
     /// <inheritdoc/>
@@ -182,6 +214,82 @@ public sealed class ProjectStoreMock : IProjectStore
 
         _log.Debug(LogSource.EngineMock, $"[ProjectStore] DeletePlaylist '{playlistId}' → {(removed ? "OK" : "not found")}");
         return removed;
+    }
+
+    /// <inheritdoc/>
+    public Task<ValidationResult> SavePlaylistsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        List<Playlist> playlists;
+        IReadOnlyList<Song> songs;
+        lock (_lock)
+        {
+            playlists = _playlists.Values.ToList();
+            songs = _songs.Values.ToList();
+        }
+
+        var validation = ModelValidator.ValidatePlaylists(playlists, songs);
+        if (!validation.IsValid)
+            return Task.FromResult(validation);
+
+        var json = JsonSerializer.Serialize(playlists, _jsonOptions);
+        lock (_lock)
+            _store[path] = json;
+
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] SavePlaylists '{path}' ← {playlists.Count} playlists");
+        return Task.FromResult(validation);
+    }
+
+    /// <inheritdoc/>
+    public Task<LoadResult<IReadOnlyList<Playlist>>> LoadPlaylistsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
+
+        string? json;
+        lock (_lock)
+            _store.TryGetValue(path, out json);
+
+        if (json is null)
+        {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
+            return Task.FromResult(new LoadResult<IReadOnlyList<Playlist>>(null, validation));
+        }
+
+        List<Playlist>? playlists;
+        try
+        {
+            playlists = JsonSerializer.Deserialize<List<Playlist>>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé : {ex.Message}");
+            return Task.FromResult(new LoadResult<IReadOnlyList<Playlist>>(null, validation));
+        }
+
+        if (playlists is null)
+        {
+            validation.AddError("json", "Désérialisation a retourné null.");
+            return Task.FromResult(new LoadResult<IReadOnlyList<Playlist>>(null, validation));
+        }
+
+        IReadOnlyList<Song> songs;
+        lock (_lock)
+            songs = _songs.Values.ToList();
+
+        var playlistValidation = ModelValidator.ValidatePlaylists(playlists, songs);
+        validation.Merge(playlistValidation);
+
+        lock (_lock)
+        {
+            foreach (var pl in playlists)
+                _playlists[pl.Id] = pl;
+        }
+
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] LoadPlaylists '{path}' → {playlists.Count} playlists");
+        return Task.FromResult(new LoadResult<IReadOnlyList<Playlist>>((IReadOnlyList<Playlist>)playlists.AsReadOnly(), validation));
     }
 
     // ------------------------------------------------------------------ //

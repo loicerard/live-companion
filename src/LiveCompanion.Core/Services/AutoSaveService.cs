@@ -88,7 +88,14 @@ public sealed class AutoSaveService : IAutoSaveService
                 var path = GetSongPath(song.Id);
                 try
                 {
-                    await _store.SaveAsync(song, path);
+                    var result = await _store.SaveAsync(song, path);
+                    if (!result.IsValid)
+                    {
+                        _log.Warn(LogSource.Core,
+                            $"[AutoSave] Validation échouée pour '{song.Title}' — " +
+                            string.Join("; ", result.Issues.Select(i => i.Message)));
+                        continue;
+                    }
                     lock (_lock)
                         _lastSavedAt[song.Id] = song.LastModified;
                     saved++;
@@ -98,6 +105,17 @@ public sealed class AutoSaveService : IAutoSaveService
                     _log.Error(LogSource.Core,
                         $"[AutoSave] Erreur sauvegarde '{song.Title}' — {ex.Message}");
                 }
+            }
+
+            // Sauvegarde des playlists
+            try
+            {
+                var playlistPath = Path.Combine(_saveFolderPath, "playlists.json");
+                await _store.SavePlaylistsAsync(playlistPath);
+            }
+            catch (Exception ex)
+            {
+                _log.Error(LogSource.Core, $"[AutoSave] Erreur sauvegarde playlists — {ex.Message}");
             }
 
             if (saved > 0)
