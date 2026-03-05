@@ -17,6 +17,7 @@ internal sealed class FakeAsioInterop : IAsioInterop
     private readonly int _outputChannelCount;
 
     private bool _isOpen;
+    private bool _isPlaying;
 
     public FakeAsioInterop(
         IReadOnlyList<string>? driverNames = null,
@@ -43,6 +44,7 @@ internal sealed class FakeAsioInterop : IAsioInterop
 
     public void CloseDriver()
     {
+        StopPlayback();
         CloseDriverCallCount++;
         _isOpen = false;
     }
@@ -69,6 +71,13 @@ internal sealed class FakeAsioInterop : IAsioInterop
         if (!_isOpen) throw new InvalidOperationException("No driver open.");
         return $"Output {index + 1}";
     }
+
+    public int SampleRate => _isOpen ? 48000 : 0;
+
+    public void InitPlayback(NAudio.Wave.IWaveProvider provider) { }
+    public void Play() => _isPlaying = true;
+    public void StopPlayback() => _isPlaying = false;
+    public bool IsPlaying => _isPlaying;
 
     public void Dispose() => CloseDriver();
 }
@@ -519,6 +528,166 @@ public class AudioEngineRealTests
         {
             File.Delete(tempFile);
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // GetAvailableOutputPairs
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task GetAvailableOutputPairs_ShouldReturnStereoPairs()
+    {
+        var (engine, _, _) = Create(outputChannelCount: 8);
+        await engine.InitializeAsync(DefaultConfig);
+
+        var pairs = engine.GetAvailableOutputPairs();
+
+        pairs.Should().HaveCount(4);
+        pairs[0].Should().Be("Output 1-Output 2");
+        pairs[1].Should().Be("Output 3-Output 4");
+    }
+
+    [Fact]
+    public void GetAvailableOutputPairs_NoDriverOpen_ShouldReturnEmpty()
+    {
+        var (engine, _, _) = Create();
+
+        var pairs = engine.GetAvailableOutputPairs();
+
+        pairs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAvailableOutputPairs_OddChannelCount_ShouldIncludeLastSolo()
+    {
+        var (engine, _, _) = Create(outputChannelCount: 5);
+        await engine.InitializeAsync(DefaultConfig);
+
+        var pairs = engine.GetAvailableOutputPairs();
+
+        // 2 stereo pairs + 1 solo channel
+        pairs.Should().HaveCount(3);
+        pairs[2].Should().Be("Output 5");
+    }
+
+    // ------------------------------------------------------------------ //
+    // TryResolveChannelPair
+    // ------------------------------------------------------------------ //
+
+    [Theory]
+    [InlineData("Output 1-2", 0, 1)]
+    [InlineData("Output 3-4", 2, 3)]
+    [InlineData("Ch 1-2", 0, 1)]
+    public void TryResolveChannelPair_ShortFormat_ShouldResolve(string name, int expectedLeft, int expectedRight)
+    {
+        var lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var result = AudioEngineReal.TryResolveChannelPair(name, lookup, out int left, out int right);
+
+        result.Should().BeTrue();
+        left.Should().Be(expectedLeft);
+        right.Should().Be(expectedRight);
+    }
+
+    [Theory]
+    [InlineData("Output 1-Output 2", 0, 1)]
+    [InlineData("Output 3-Output 4", 2, 3)]
+    [InlineData("Analog 1-Analog 2", 0, 1)]
+    public void TryResolveChannelPair_FullNameFormat_ShouldResolve(string name, int expectedLeft, int expectedRight)
+    {
+        var lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var result = AudioEngineReal.TryResolveChannelPair(name, lookup, out int left, out int right);
+
+        result.Should().BeTrue();
+        left.Should().Be(expectedLeft);
+        right.Should().Be(expectedRight);
+    }
+
+    [Fact]
+    public void TryResolveChannelPair_ChannelNameLookup_ShouldResolve()
+    {
+        var lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Analog L"] = 0,
+            ["Analog R"] = 1,
+        };
+
+        var result = AudioEngineReal.TryResolveChannelPair("Analog L-Analog R", lookup, out int left, out int right);
+
+        result.Should().BeTrue();
+        left.Should().Be(0);
+        right.Should().Be(1);
+    }
+
+    [Fact]
+    public void TryResolveChannelPair_ExactNameFallback_ShouldResolve()
+    {
+        var lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Headphones"] = 4,
+        };
+
+        var result = AudioEngineReal.TryResolveChannelPair("Headphones", lookup, out int left, out int right);
+
+        result.Should().BeTrue();
+        left.Should().Be(4);
+        right.Should().Be(5);
+    }
+
+    [Fact]
+    public void TryResolveChannelPair_UnknownName_ShouldReturnFalse()
+    {
+        var lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var result = AudioEngineReal.TryResolveChannelPair("Unknown", lookup, out _, out _);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task InitializeAsync_WithFullNameFormat_ShouldResolveBusMappings()
+    {
+        var (engine, _, _) = Create(outputChannelCount: 8);
+        var config = new AudioConfig
+        {
+            DriverName = "FakeASIO Driver",
+            BufferSize = 256,
+            BusMappings =
+            {
+                ["Main"] = "Output 1-Output 2",
+                ["Click"] = "Output 3-Output 4",
+            },
+        };
+
+        // Should resolve correctly — no exception
+        await engine.InitializeAsync(config);
+        engine.GetSupportedBufferSizes().Should().NotBeEmpty();
+    }
+
+    // ------------------------------------------------------------------ //
+    // ASIO Playback wiring
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task InitializeAsync_ShouldStartPlayback()
+    {
+        var (engine, asio, _) = Create();
+
+        await engine.InitializeAsync(DefaultConfig);
+
+        asio.IsPlaying.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_ShouldStopPlayback()
+    {
+        var (engine, asio, _) = Create();
+        await engine.InitializeAsync(DefaultConfig);
+
+        await engine.ShutdownAsync();
+
+        asio.IsPlaying.Should().BeFalse();
     }
 
     // ------------------------------------------------------------------ //

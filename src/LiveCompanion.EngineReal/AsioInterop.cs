@@ -13,6 +13,7 @@ public sealed class AsioInterop : IAsioInterop
     private static readonly IReadOnlyList<int> StandardBufferSizes = [64, 128, 256, 512, 1024, 2048, 4096];
 
     private AsioOut? _asioOut;
+    private bool _isPlaying;
 
     /// <inheritdoc/>
     public IReadOnlyList<string> GetDriverNames()
@@ -41,6 +42,7 @@ public sealed class AsioInterop : IAsioInterop
     {
         if (_asioOut is not null)
         {
+            StopPlayback();
             _asioOut.Dispose();
             _asioOut = null;
         }
@@ -98,6 +100,66 @@ public sealed class AsioInterop : IAsioInterop
         ThrowIfNoDriver();
         return _asioOut!.AsioOutputChannelName(index);
     }
+
+    /// <inheritdoc/>
+    public int SampleRate
+    {
+        get
+        {
+            ThrowIfNoDriver();
+            try
+            {
+                var driverField = typeof(AsioOut).GetField("driver", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (driverField?.GetValue(_asioOut) is { } driverExt)
+                {
+                    var method = driverExt.GetType().GetMethod("GetSampleRate");
+                    if (method?.Invoke(driverExt, null) is double rate && rate > 0)
+                        return (int)rate;
+                }
+            }
+            catch
+            {
+                // Reflection failed — fall through to default.
+            }
+
+            return 0;
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Playback
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public void InitPlayback(IWaveProvider provider)
+    {
+        ThrowIfNoDriver();
+        ArgumentNullException.ThrowIfNull(provider);
+        _asioOut!.Init(provider);
+    }
+
+    /// <inheritdoc/>
+    public void Play()
+    {
+        ThrowIfNoDriver();
+        _asioOut!.Play();
+        _isPlaying = true;
+    }
+
+    /// <inheritdoc/>
+    public void StopPlayback()
+    {
+        if (_isPlaying && _asioOut is not null)
+        {
+            _asioOut.Stop();
+            _isPlaying = false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool IsPlaying => _isPlaying;
+
+    // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
     public void Dispose() => CloseDriver();

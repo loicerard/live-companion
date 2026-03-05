@@ -12,6 +12,7 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private readonly ITransportController _transport;
     private readonly ITimelineScheduler _scheduler;
     private readonly IProjectStore _projectStore;
+    private readonly ILiveModeGuard _liveModeGuard;
 
     private Song? _song;
     private bool _disposed;
@@ -70,6 +71,13 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     [NotifyCanExecuteChangedFor(nameof(NextSectionCommand))]
     private bool _canTransition = true;
 
+    // ------------------------------------------------------------------ //
+    // Mode Live sécurisé (#44)
+    // ------------------------------------------------------------------ //
+
+    [ObservableProperty]
+    private bool _isLiveModeActive;
+
     public bool IsPlaying => _currentState == TransportState.Playing;
     public bool IsPaused => _currentState == TransportState.Paused;
     public bool IsStopped => _currentState == TransportState.Stopped;
@@ -88,15 +96,19 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     public LiveViewModel(
         ITransportController transport,
         ITimelineScheduler scheduler,
-        IProjectStore projectStore)
+        IProjectStore projectStore,
+        ILiveModeGuard liveModeGuard)
     {
         _transport = transport;
         _scheduler = scheduler;
         _projectStore = projectStore;
+        _liveModeGuard = liveModeGuard;
 
         _transport.StateChanged += OnTransportStateChanged;
         _scheduler.PositionChanged += OnPositionChanged;
         _scheduler.SectionChanged += OnSectionChanged;
+
+        IsLiveModeActive = _liveModeGuard.IsLive;
 
         RefreshSongList();
     }
@@ -185,6 +197,21 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private async Task NextSectionAsync()
     {
         await _scheduler.NextSectionAsync();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Commande Mode Live (#44)
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private void ToggleLiveMode()
+    {
+        if (_liveModeGuard.IsLive)
+            _liveModeGuard.Disengage();
+        else
+            _liveModeGuard.Engage();
+
+        IsLiveModeActive = _liveModeGuard.IsLive;
     }
 
     // ------------------------------------------------------------------ //

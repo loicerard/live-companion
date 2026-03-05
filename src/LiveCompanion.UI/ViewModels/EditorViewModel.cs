@@ -12,6 +12,7 @@ public partial class EditorViewModel : ViewModelBase
     private readonly IProjectStore _projectStore;
     private readonly IMidiEngine _midiEngine;
     private readonly ILogService _log;
+    private readonly ILiveModeGuard _liveModeGuard;
 
     // ------------------------------------------------------------------ //
     // Bibliothèque de morceaux (panneau gauche)
@@ -94,11 +95,12 @@ public partial class EditorViewModel : ViewModelBase
     // Constructeur
     // ------------------------------------------------------------------ //
 
-    public EditorViewModel(IProjectStore projectStore, IMidiEngine midiEngine, ILogService log)
+    public EditorViewModel(IProjectStore projectStore, IMidiEngine midiEngine, ILogService log, ILiveModeGuard liveModeGuard)
     {
         _projectStore = projectStore;
         _midiEngine = midiEngine;
         _log = log;
+        _liveModeGuard = liveModeGuard;
         RefreshSongList();
     }
 
@@ -184,6 +186,11 @@ public partial class EditorViewModel : ViewModelBase
     private void DeleteSong()
     {
         if (SelectedSong is null) return;
+        if (_liveModeGuard.IsLive)
+        {
+            StatusMessage = "Action non disponible en mode Live.";
+            return;
+        }
 
         var title = SelectedSong.Title;
         _projectStore.Delete(SelectedSong.Id);
@@ -222,6 +229,11 @@ public partial class EditorViewModel : ViewModelBase
     private void RemoveSection()
     {
         if (SelectedSong is null || SelectedSection is null) return;
+        if (_liveModeGuard.IsLive)
+        {
+            StatusMessage = "Action non disponible en mode Live.";
+            return;
+        }
 
         var model = SelectedSection.Model;
         SelectedSong.Sections.Remove(model);
@@ -299,6 +311,11 @@ public partial class EditorViewModel : ViewModelBase
     private void RemoveAudioClip()
     {
         if (SelectedSong is null || SelectedAudioClip is null) return;
+        if (_liveModeGuard.IsLive)
+        {
+            StatusMessage = "Action non disponible en mode Live.";
+            return;
+        }
 
         SelectedSong.AudioClips.Remove(SelectedAudioClip.Model);
         AudioClips.Remove(SelectedAudioClip);
@@ -356,6 +373,11 @@ public partial class EditorViewModel : ViewModelBase
     private void RemoveMidiEvent()
     {
         if (SelectedSong is null || SelectedMidiEvent is null) return;
+        if (_liveModeGuard.IsLive)
+        {
+            StatusMessage = "Action non disponible en mode Live.";
+            return;
+        }
 
         SelectedSong.MidiEvents.Remove(SelectedMidiEvent.Model);
         MidiEvents.Remove(SelectedMidiEvent);
@@ -411,6 +433,11 @@ public partial class EditorViewModel : ViewModelBase
     private void ClearClickTrack()
     {
         if (SelectedSong is null) return;
+        if (_liveModeGuard.IsLive)
+        {
+            StatusMessage = "Action non disponible en mode Live.";
+            return;
+        }
 
         SelectedSong.ClickTrackPath = null;
         ClickTrackPath = null;

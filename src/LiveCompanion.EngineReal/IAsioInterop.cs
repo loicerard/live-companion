@@ -1,3 +1,5 @@
+using NAudio.Wave;
+
 namespace LiveCompanion.EngineReal;
 
 /// <summary>
@@ -41,4 +43,28 @@ public interface IAsioInterop : IDisposable
     /// <summary>Returns the name of the output channel at <paramref name="index"/>.</summary>
     /// <exception cref="InvalidOperationException">No driver is open.</exception>
     string GetOutputChannelName(int index);
+
+    /// <summary>
+    /// Returns the ASIO driver's current sample rate in Hz, or 0 if unknown.
+    /// </summary>
+    int SampleRate { get; }
+
+    // ------------------------------------------------------------------ //
+    // Playback
+    // ------------------------------------------------------------------ //
+
+    /// <summary>
+    /// Initialise le playback ASIO avec le fournisseur audio donné.
+    /// </summary>
+    /// <param name="provider">Source audio multi-canal.</param>
+    void InitPlayback(IWaveProvider provider);
+
+    /// <summary>Démarre le playback ASIO.</summary>
+    void Play();
+
+    /// <summary>Arrête le playback ASIO.</summary>
+    void StopPlayback();
+
+    /// <summary>Indique si le playback ASIO est en cours.</summary>
+    bool IsPlaying { get; }
 }

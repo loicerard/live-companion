@@ -4,6 +4,7 @@ using LiveCompanion.EngineMock;
 using LiveCompanion.EngineReal;
 using LiveCompanion.UI.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using System.IO;
 
 namespace LiveCompanion.UI;
 
@@ -21,6 +22,21 @@ public static class ServiceCollectionExtensions
     {
         // Logging unifié — singleton partagé par tous les moteurs et ViewModels
         services.AddSingleton<ILogService, DebugLogService>();
+
+        // Live Mode Guard — empêche les actions destructives en mode Live
+        services.AddSingleton<ILiveModeGuard, LiveModeGuard>();
+
+        // AutoSave — sauvegarde périodique des morceaux modifiés
+        services.AddSingleton<IAutoSaveService>(sp =>
+        {
+            var store = sp.GetRequiredService<IProjectStore>();
+            var log = sp.GetRequiredService<ILogService>();
+            var savePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "LiveCompanion",
+                "songs");
+            return new AutoSaveService(store, log, savePath);
+        });
 
         return mode switch
         {
@@ -112,7 +128,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAudioEngine>(sp
             => sp.GetRequiredService<AudioEngineReal>());
 
-        services.AddSingleton<IMidiEngine, MidiEngineReal>();
+        services.AddSingleton<MidiEngineReal>();
+        services.AddSingleton<IMidiEngine>(sp
+            => sp.GetRequiredService<MidiEngineReal>());
         services.AddSingleton<ITransportController, TransportControllerReal>();
         services.AddSingleton<IProjectStore>(sp =>
         {
