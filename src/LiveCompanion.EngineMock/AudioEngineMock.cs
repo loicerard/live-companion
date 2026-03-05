@@ -65,6 +65,9 @@ public sealed class AudioEngineMock : IAudioEngine
         ["Output 1-2", "Output 3-4", "Output 5-6", "Output 7-8"];
 
     /// <inheritdoc/>
+    public Task PreloadAsync(IEnumerable<string> filePaths) => Task.CompletedTask;
+
+    /// <inheritdoc/>
     public Task PlayClipAsync(AudioClip clip)
     {
         ArgumentNullException.ThrowIfNull(clip);

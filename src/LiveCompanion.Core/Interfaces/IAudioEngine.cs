@@ -31,6 +31,13 @@ public interface IAudioEngine
     IReadOnlyList<string> GetAvailableOutputPairs();
 
     /// <summary>
+    /// Précharge en mémoire les fichiers audio dont les chemins sont fournis.
+    /// Doit être appelé avant <see cref="PlayClipAsync"/> pour éviter les cache-miss.
+    /// </summary>
+    /// <param name="filePaths">Chemins absolus des fichiers à précharger.</param>
+    Task PreloadAsync(IEnumerable<string> filePaths);
+
+    /// <summary>
     /// Déclenche la lecture d'un clip audio. La synchronisation suit le <see cref="SyncMode"/>
     /// du clip.
     /// </summary>

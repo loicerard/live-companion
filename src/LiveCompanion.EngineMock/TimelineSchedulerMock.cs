@@ -107,13 +107,24 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
     // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
-    public Task StartAsync(Song song, int startSectionIndex = 0)
+    public async Task StartAsync(Song song, int startSectionIndex = 0)
     {
         ArgumentNullException.ThrowIfNull(song);
         if (song.Sections.Count == 0)
             throw new ArgumentException("Le morceau ne contient aucune section.", nameof(song));
 
         startSectionIndex = Math.Clamp(startSectionIndex, 0, song.Sections.Count - 1);
+
+        // Preload all audio clips before starting playback
+        if (_audioEngine is not null && song.AudioClips.Count > 0)
+        {
+            var paths = song.AudioClips
+                .Select(c => c.FilePath)
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            await _audioEngine.PreloadAsync(paths).ConfigureAwait(false);
+        }
 
         lock (_lock)
         {
@@ -133,11 +144,10 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
         TriggerEventsAtPosition(song, pos);
 
         PositionChanged?.Invoke(this, pos);
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Task StopAsync()
+    public async Task StopAsync()
     {
         lock (_lock)
         {
@@ -148,11 +158,13 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
             // _sectionIndex est conservé pour pouvoir reprendre depuis la même section
         }
 
+        if (_audioEngine is not null)
+            await _audioEngine.StopAllAsync().ConfigureAwait(false);
+
         _log.Debug(LogSource.EngineMock, "[Scheduler] Stop");
 
         var pos = CurrentPosition;
         PositionChanged?.Invoke(this, pos);
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>

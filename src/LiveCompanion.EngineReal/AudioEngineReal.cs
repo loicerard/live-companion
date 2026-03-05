@@ -134,6 +134,9 @@ public sealed class AudioEngineReal : IAudioEngine
     // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
+    public Task PreloadAsync(IEnumerable<string> filePaths) => _cache.PreloadAsync(filePaths);
+
+    /// <inheritdoc/>
     public Task PlayClipAsync(AudioClip clip)
     {
         ArgumentNullException.ThrowIfNull(clip);
