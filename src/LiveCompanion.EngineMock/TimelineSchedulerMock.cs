@@ -147,7 +147,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
     }
 
     /// <inheritdoc/>
-    public Task StopAsync()
+    public async Task StopAsync()
     {
         lock (_lock)
         {
@@ -158,11 +158,13 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
             // _sectionIndex est conservé pour pouvoir reprendre depuis la même section
         }
 
+        if (_audioEngine is not null)
+            await _audioEngine.StopAllAsync().ConfigureAwait(false);
+
         _log.Debug(LogSource.EngineMock, "[Scheduler] Stop");
 
         var pos = CurrentPosition;
         PositionChanged?.Invoke(this, pos);
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>

@@ -144,7 +144,7 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
     }
 
     /// <inheritdoc/>
-    public Task StopAsync()
+    public async Task StopAsync()
     {
         lock (_lock)
         {
@@ -154,9 +154,11 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
             _tick = 0;
         }
 
+        if (_audioEngine is not null)
+            await _audioEngine.StopAllAsync().ConfigureAwait(false);
+
         _log.Debug(LogSource.EngineReal, "[Scheduler] Stop");
         PositionChanged?.Invoke(this, CurrentPosition);
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
