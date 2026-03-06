@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
+using Microsoft.Win32;
 
 namespace LiveCompanion.UI.ViewModels;
 
@@ -281,5 +282,163 @@ public partial class LibraryViewModel : ViewModelBase
 
         foreach (var song in songs.OrderBy(s => s.Title))
             FilteredSongs.Add(song);
+    }
+
+    // ------------------------------------------------------------------ //
+    // Import / Export — Morceaux (disque)
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private async Task ImportSongAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Charger un morceau",
+            Filter = "Fichier JSON|*.json|Tous|*.*",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.LoadAsync(dialog.FileName);
+        if (!result.Validation.IsValid)
+        {
+            StatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
+            return;
+        }
+
+        _allSongs.Add(result.Value!);
+        ApplyFilter();
+        SelectedSong = result.Value;
+        StatusMessage = $"Morceau \"{result.Value!.Title}\" importé depuis {System.IO.Path.GetFileName(dialog.FileName)}";
+    }
+
+    [RelayCommand]
+    private async Task ExportSongAsync()
+    {
+        if (SelectedSong is null) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exporter le morceau",
+            Filter = "Fichier JSON|*.json",
+            FileName = $"{SelectedSong.Title}.json",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.SaveAsync(SelectedSong, dialog.FileName);
+        StatusMessage = result.IsValid
+            ? $"Morceau \"{SelectedSong.Title}\" exporté → {dialog.FileName}"
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
+    }
+
+    // ------------------------------------------------------------------ //
+    // Import / Export — Tous les morceaux (disque)
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private async Task ExportAllSongsAsync()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exporter tous les morceaux",
+            Filter = "Fichier JSON|*.json",
+            FileName = "morceaux.json",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.SaveAllSongsAsync(dialog.FileName);
+        StatusMessage = result.IsValid
+            ? $"{_allSongs.Count} morceau(x) exporté(s) → {dialog.FileName}"
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
+    }
+
+    [RelayCommand]
+    private async Task ImportAllSongsAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importer des morceaux",
+            Filter = "Fichier JSON|*.json|Tous|*.*",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.LoadAllSongsAsync(dialog.FileName);
+        if (!result.Validation.IsValid)
+        {
+            StatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
+            return;
+        }
+
+        // Écraser tous les morceaux existants
+        _allSongs.Clear();
+        foreach (var song in result.Value!)
+            _allSongs.Add(song);
+
+        ApplyFilter();
+        if (FilteredSongs.Count > 0)
+            SelectedSong = FilteredSongs[0];
+
+        StatusMessage = $"{result.Value!.Count} morceau(x) importé(s) depuis {System.IO.Path.GetFileName(dialog.FileName)}";
+    }
+
+    // ------------------------------------------------------------------ //
+    // Import / Export — Playlists (disque)
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private async Task ExportPlaylistsAsync()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exporter les playlists",
+            Filter = "Fichier JSON|*.json",
+            FileName = "playlists.json",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.SavePlaylistsAsync(dialog.FileName);
+        StatusMessage = result.IsValid
+            ? $"Playlists exportées → {dialog.FileName}"
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
+    }
+
+    [RelayCommand]
+    private async Task ImportPlaylistsAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importer des playlists",
+            Filter = "Fichier JSON|*.json|Tous|*.*",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.LoadPlaylistsAsync(dialog.FileName);
+        if (!result.Validation.IsValid)
+        {
+            StatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
+            return;
+        }
+
+        // Ajouter les playlists importées (sans doublons par Id)
+        var existingIds = Playlists.Select(p => p.Id).ToHashSet();
+        var imported = 0;
+        foreach (var playlist in result.Value!)
+        {
+            if (!existingIds.Contains(playlist.Id))
+            {
+                Playlists.Add(playlist);
+                imported++;
+            }
+        }
+
+        if (imported > 0)
+            SelectedPlaylist = Playlists.Last();
+
+        StatusMessage = $"{imported} playlist(s) importée(s) depuis {System.IO.Path.GetFileName(dialog.FileName)}";
     }
 }

@@ -1,5 +1,6 @@
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
+using LiveCompanion.Core.Validation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -49,31 +50,70 @@ public sealed class ProjectStoreReal : IProjectStore
     // ------------------------------------------------------------------ //
 
     /// <inheritdoc/>
-    public async Task<Song?> LoadAsync(string path)
+    public async Task<LoadResult<Song>> LoadAsync(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
 
         if (!File.Exists(path))
         {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
             _log.Debug(LogSource.EngineReal, $"[ProjectStore] Load '{path}' → not found");
-            return null;
+            return new LoadResult<Song>(null, validation);
         }
 
-        var json = await File.ReadAllTextAsync(path);
-        var song = JsonSerializer.Deserialize<Song>(json, _jsonOptions);
+        Song? song;
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            song = JsonSerializer.Deserialize<Song>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé dans '{path}' : {ex.Message}");
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] Load '{path}' → JSON invalide : {ex.Message}");
+            return new LoadResult<Song>(null, validation);
+        }
 
-        if (song != null)
-            lock (_lock) _songs[song.Id] = song;
+        if (song is null)
+        {
+            validation.AddError("json", $"Désérialisation de '{path}' a retourné null.");
+            return new LoadResult<Song>(null, validation);
+        }
 
-        _log.Debug(LogSource.EngineReal, $"[ProjectStore] Load '{path}' → '{song?.Title}'");
-        return song;
+        // Validation du modèle
+        var modelValidation = ModelValidator.ValidateSong(song);
+        if (!modelValidation.IsValid)
+        {
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] Load '{path}' → validation échouée ({modelValidation.Issues.Count} erreurs)");
+            return new LoadResult<Song>(null, modelValidation);
+        }
+
+        // Vérification des fichiers audio
+        var fileValidation = ModelValidator.ValidateSongFiles(song);
+        validation.Merge(modelValidation);
+        validation.Merge(fileValidation);
+
+        lock (_lock) _songs[song.Id] = song;
+
+        _log.Debug(LogSource.EngineReal, $"[ProjectStore] Load '{path}' → '{song.Title}'" +
+            (validation.HasWarnings ? $" ({validation.Issues.Count} warnings)" : ""));
+        return new LoadResult<Song>(song, validation);
     }
 
     /// <inheritdoc/>
-    public async Task SaveAsync(Song song, string path)
+    public async Task<ValidationResult> SaveAsync(Song song, string path)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = ModelValidator.ValidateSong(song);
+        if (!validation.IsValid)
+        {
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] Save '{path}' annulé — validation échouée ({validation.Issues.Count} erreurs)");
+            return validation;
+        }
 
         song.LastModified = DateTime.UtcNow;
         var json = JsonSerializer.Serialize(song, _jsonOptions);
@@ -83,6 +123,7 @@ public sealed class ProjectStoreReal : IProjectStore
 
         await File.WriteAllTextAsync(path, json);
         _log.Debug(LogSource.EngineReal, $"[ProjectStore] Save '{path}' ← '{song.Title}' ({song.Sections.Count} sections)");
+        return validation;
     }
 
     /// <inheritdoc/>
@@ -140,6 +181,95 @@ public sealed class ProjectStoreReal : IProjectStore
         return removed;
     }
 
+    /// <inheritdoc/>
+    public async Task<ValidationResult> SaveAllSongsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        List<Song> songs;
+        lock (_lock)
+            songs = _songs.Values.ToList();
+
+        var validation = new ValidationResult();
+        foreach (var song in songs)
+        {
+            var sv = ModelValidator.ValidateSong(song);
+            validation.Merge(sv);
+        }
+
+        if (!validation.IsValid)
+        {
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] SaveAllSongs annulé — validation échouée");
+            return validation;
+        }
+
+        foreach (var song in songs)
+            song.LastModified = DateTime.UtcNow;
+
+        var json = JsonSerializer.Serialize(songs, _jsonOptions);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        await File.WriteAllTextAsync(path, json);
+        _log.Debug(LogSource.EngineReal, $"[ProjectStore] SaveAllSongs '{path}' ← {songs.Count} morceaux");
+        return validation;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LoadResult<IReadOnlyList<Song>>> LoadAllSongsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
+
+        if (!File.Exists(path))
+        {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
+            _log.Debug(LogSource.EngineReal, $"[ProjectStore] LoadAllSongs '{path}' → not found");
+            return new LoadResult<IReadOnlyList<Song>>(null, validation);
+        }
+
+        List<Song>? songs;
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            songs = JsonSerializer.Deserialize<List<Song>>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé dans '{path}' : {ex.Message}");
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] LoadAllSongs '{path}' → JSON invalide : {ex.Message}");
+            return new LoadResult<IReadOnlyList<Song>>(null, validation);
+        }
+
+        if (songs is null)
+        {
+            validation.AddError("json", $"Désérialisation de '{path}' a retourné null.");
+            return new LoadResult<IReadOnlyList<Song>>(null, validation);
+        }
+
+        foreach (var song in songs)
+        {
+            var sv = ModelValidator.ValidateSong(song);
+            validation.Merge(sv);
+        }
+
+        if (!validation.IsValid)
+        {
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] LoadAllSongs '{path}' → validation échouée");
+            return new LoadResult<IReadOnlyList<Song>>(null, validation);
+        }
+
+        lock (_lock)
+        {
+            foreach (var song in songs)
+                _songs[song.Id] = song;
+        }
+
+        _log.Debug(LogSource.EngineReal, $"[ProjectStore] LoadAllSongs '{path}' → {songs.Count} morceaux");
+        return new LoadResult<IReadOnlyList<Song>>(songs.AsReadOnly(), validation);
+    }
+
     // ------------------------------------------------------------------ //
     // IProjectStore — Playlists
     // ------------------------------------------------------------------ //
@@ -183,6 +313,87 @@ public sealed class ProjectStoreReal : IProjectStore
 
         _log.Debug(LogSource.EngineReal, $"[ProjectStore] DeletePlaylist '{playlistId}' → {(removed ? "OK" : "not found")}");
         return removed;
+    }
+
+    /// <inheritdoc/>
+    public async Task<ValidationResult> SavePlaylistsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        List<Playlist> playlists;
+        IReadOnlyList<Song> songs;
+        lock (_lock)
+        {
+            playlists = _playlists.Values.ToList();
+            songs = _songs.Values.ToList();
+        }
+
+        var validation = ModelValidator.ValidatePlaylists(playlists, songs);
+        // On sauvegarde même avec des warnings (SongId manquant), mais pas si erreurs
+        if (!validation.IsValid)
+        {
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] SavePlaylists annulé — validation échouée");
+            return validation;
+        }
+
+        var json = JsonSerializer.Serialize(playlists, _jsonOptions);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        await File.WriteAllTextAsync(path, json);
+        _log.Debug(LogSource.EngineReal, $"[ProjectStore] SavePlaylists '{path}' ← {playlists.Count} playlists");
+        return validation;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LoadResult<IReadOnlyList<Playlist>>> LoadPlaylistsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
+
+        if (!File.Exists(path))
+        {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
+            _log.Debug(LogSource.EngineReal, $"[ProjectStore] LoadPlaylists '{path}' → not found");
+            return new LoadResult<IReadOnlyList<Playlist>>(null, validation);
+        }
+
+        List<Playlist>? playlists;
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            playlists = JsonSerializer.Deserialize<List<Playlist>>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé dans '{path}' : {ex.Message}");
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] LoadPlaylists '{path}' → JSON invalide : {ex.Message}");
+            return new LoadResult<IReadOnlyList<Playlist>>(null, validation);
+        }
+
+        if (playlists is null)
+        {
+            validation.AddError("json", $"Désérialisation de '{path}' a retourné null.");
+            return new LoadResult<IReadOnlyList<Playlist>>(null, validation);
+        }
+
+        IReadOnlyList<Song> songs;
+        lock (_lock)
+            songs = _songs.Values.ToList();
+
+        var playlistValidation = ModelValidator.ValidatePlaylists(playlists, songs);
+        validation.Merge(playlistValidation);
+
+        lock (_lock)
+        {
+            foreach (var pl in playlists)
+                _playlists[pl.Id] = pl;
+        }
+
+        _log.Debug(LogSource.EngineReal, $"[ProjectStore] LoadPlaylists '{path}' → {playlists.Count} playlists" +
+            (validation.HasWarnings ? $" ({validation.Issues.Count} warnings)" : ""));
+        return new LoadResult<IReadOnlyList<Playlist>>(playlists.AsReadOnly(), validation);
     }
 
     // ------------------------------------------------------------------ //

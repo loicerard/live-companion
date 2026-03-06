@@ -2,6 +2,7 @@ using FluentAssertions;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
 using LiveCompanion.Core.Services;
+using LiveCompanion.Core.Validation;
 using LiveCompanion.EngineReal;
 
 namespace LiveCompanion.Tests.EngineReal;
@@ -115,25 +116,27 @@ public class ProjectStoreRealTests : IDisposable
             Sections = { new Section { Name = "Intro", Tempo = 140, BarCount = 8 } },
         };
 
-        await store.SaveAsync(song, path);
-        var loaded = await store.LoadAsync(path);
+        var saveResult = await store.SaveAsync(song, path);
+        saveResult.IsValid.Should().BeTrue();
 
-        loaded.Should().NotBeNull();
-        loaded!.Title.Should().Be("Saved Song");
-        loaded.Sections.Should().HaveCount(1);
+        var loadResult = await store.LoadAsync(path);
+        loadResult.Value.Should().NotBeNull();
+        loadResult.Value!.Title.Should().Be("Saved Song");
+        loadResult.Value.Sections.Should().HaveCount(1);
 
         // Deep copy — modifier loaded ne doit pas affecter le fichier
-        loaded.Title = "Changed";
+        loadResult.Value.Title = "Changed";
         var reloaded = await store.LoadAsync(path);
-        reloaded!.Title.Should().Be("Saved Song");
+        reloaded.Value!.Title.Should().Be("Saved Song");
     }
 
     [Fact]
-    public async Task Load_NonExistentPath_ShouldReturnNull()
+    public async Task Load_NonExistentPath_ShouldReturnErrorResult()
     {
         var store = CreateStore();
         var result = await store.LoadAsync(Path.Combine(_tmpDir, "does-not-exist.json"));
-        result.Should().BeNull();
+        result.Value.Should().BeNull();
+        result.Validation.IsValid.Should().BeFalse();
     }
 
     [Fact]
@@ -143,7 +146,8 @@ public class ProjectStoreRealTests : IDisposable
         var path = Path.Combine(_tmpDir, "sub", "song.json");
         var song = store.CreateNew("Persistance");
 
-        await store.SaveAsync(song, path);
+        var result = await store.SaveAsync(song, path);
+        result.IsValid.Should().BeTrue();
 
         File.Exists(path).Should().BeTrue();
     }
@@ -158,11 +162,60 @@ public class ProjectStoreRealTests : IDisposable
         await CreateStore().SaveAsync(song, path);
 
         // Deuxième instance : chargement
-        var loaded = await CreateStore().LoadAsync(path);
+        var loadResult = await CreateStore().LoadAsync(path);
 
-        loaded.Should().NotBeNull();
-        loaded!.Title.Should().Be("Cross-instance");
-        loaded.Id.Should().Be(song.Id);
+        loadResult.Value.Should().NotBeNull();
+        loadResult.Value!.Title.Should().Be("Cross-instance");
+        loadResult.Value.Id.Should().Be(song.Id);
+    }
+
+    [Fact]
+    public async Task Save_InvalidSong_ShouldReturnErrors()
+    {
+        var store = CreateStore();
+        var path = Path.Combine(_tmpDir, "invalid.json");
+        var song = new Song
+        {
+            Title = "Bad",
+            Sections = { new Section { Name = "X", Tempo = 0, BarCount = 0 } },
+        };
+
+        var result = await store.SaveAsync(song, path);
+
+        result.IsValid.Should().BeFalse();
+        File.Exists(path).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Load_MalformedJson_ShouldReturnError()
+    {
+        var path = Path.Combine(_tmpDir, "bad.json");
+        Directory.CreateDirectory(_tmpDir);
+        await File.WriteAllTextAsync(path, "{ this is not valid json }}}");
+
+        var store = CreateStore();
+        var result = await store.LoadAsync(path);
+
+        result.Value.Should().BeNull();
+        result.Validation.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Load_WithMissingAudioFile_ShouldReturnWarnings()
+    {
+        var store = CreateStore();
+        var path = Path.Combine(_tmpDir, "song-audio.json");
+        var song = new Song
+        {
+            Title = "AudioTest",
+            AudioClips = { new AudioClip { Name = "Ghost", FilePath = "/nonexistent/audio.wav" } },
+        };
+
+        await store.SaveAsync(song, path);
+        var result = await store.LoadAsync(path);
+
+        result.Value.Should().NotBeNull();
+        result.Validation.HasWarnings.Should().BeTrue();
     }
 
     // ------------------------------------------------------------------ //
@@ -206,6 +259,62 @@ public class ProjectStoreRealTests : IDisposable
     {
         var store = CreateStore();
         store.DeletePlaylist(Guid.NewGuid()).Should().BeFalse();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Playlists — Persistence
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task SaveAndLoadPlaylists_ShouldRoundTrip()
+    {
+        var store = CreateStore();
+        var song = store.CreateNew("Test Song");
+        var playlist = store.CreatePlaylist("Concert");
+        playlist.SongIds.Add(song.Id);
+        store.UpdatePlaylist(playlist);
+
+        var path = Path.Combine(_tmpDir, "playlists.json");
+        var saveResult = await store.SavePlaylistsAsync(path);
+        saveResult.IsValid.Should().BeTrue();
+        File.Exists(path).Should().BeTrue();
+
+        // Charger dans une nouvelle instance (qui a le même song)
+        var store2 = CreateStore();
+        store2.CreateNew("Test Song"); // Pour que les SongIds soient présents
+        // On va quand même avoir un warning car le song Id sera différent
+        // Testons plutôt le round-trip simple
+        var loadResult = await store2.LoadPlaylistsAsync(path);
+        loadResult.Value.Should().NotBeNull();
+        loadResult.Value!.Should().HaveCount(1);
+        loadResult.Value[0].Name.Should().Be("Concert");
+    }
+
+    [Fact]
+    public async Task LoadPlaylists_NonExistent_ShouldReturnError()
+    {
+        var store = CreateStore();
+        var result = await store.LoadPlaylistsAsync(Path.Combine(_tmpDir, "nope.json"));
+        result.Value.Should().BeNull();
+        result.Validation.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LoadPlaylists_WithMissingSong_ShouldReturnWarning()
+    {
+        var store = CreateStore();
+        var playlist = store.CreatePlaylist("Orphan");
+        playlist.SongIds.Add(Guid.NewGuid()); // Référence un song inexistant
+        store.UpdatePlaylist(playlist);
+
+        var path = Path.Combine(_tmpDir, "playlists.json");
+        await store.SavePlaylistsAsync(path);
+
+        var store2 = CreateStore();
+        var result = await store2.LoadPlaylistsAsync(path);
+
+        result.Value.Should().NotBeNull();
+        result.Validation.HasWarnings.Should().BeTrue();
     }
 
     // ------------------------------------------------------------------ //

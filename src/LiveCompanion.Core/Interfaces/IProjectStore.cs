@@ -1,4 +1,5 @@
 using LiveCompanion.Core.Models;
+using LiveCompanion.Core.Validation;
 
 namespace LiveCompanion.Core.Interfaces;
 
@@ -12,18 +13,19 @@ public interface IProjectStore
     // ------------------------------------------------------------------ //
 
     /// <summary>
-    /// Charge un morceau depuis un fichier JSON.
+    /// Charge un morceau depuis un fichier JSON avec validation.
     /// </summary>
     /// <param name="path">Chemin du fichier projet.</param>
-    /// <returns>Le morceau chargé, ou <c>null</c> si le fichier est introuvable.</returns>
-    Task<Song?> LoadAsync(string path);
+    /// <returns>Le résultat du chargement avec validation intégrée.</returns>
+    Task<LoadResult<Song>> LoadAsync(string path);
 
     /// <summary>
-    /// Sauvegarde un morceau dans un fichier JSON.
+    /// Sauvegarde un morceau dans un fichier JSON après validation.
     /// </summary>
     /// <param name="song">Morceau à sauvegarder.</param>
     /// <param name="path">Chemin du fichier de destination.</param>
-    Task SaveAsync(Song song, string path);
+    /// <returns>Le résultat de la validation. Si invalide, le fichier n'est pas écrit.</returns>
+    Task<ValidationResult> SaveAsync(Song song, string path);
 
     /// <summary>
     /// Crée un nouveau morceau vide avec les valeurs par défaut.
@@ -48,6 +50,12 @@ public interface IProjectStore
     /// <returns><c>true</c> si le morceau existait et a été supprimé.</returns>
     bool Delete(Guid songId);
 
+    /// <summary>Sauvegarde tous les morceaux dans un fichier JSON.</summary>
+    Task<ValidationResult> SaveAllSongsAsync(string path);
+
+    /// <summary>Charge tous les morceaux depuis un fichier JSON.</summary>
+    Task<LoadResult<IReadOnlyList<Song>>> LoadAllSongsAsync(string path);
+
     // ------------------------------------------------------------------ //
     // Playlists
     // ------------------------------------------------------------------ //
@@ -63,6 +71,12 @@ public interface IProjectStore
 
     /// <summary>Supprime une playlist par son identifiant.</summary>
     bool DeletePlaylist(Guid playlistId);
+
+    /// <summary>Sauvegarde toutes les playlists dans un fichier JSON.</summary>
+    Task<ValidationResult> SavePlaylistsAsync(string path);
+
+    /// <summary>Charge les playlists depuis un fichier JSON avec validation de cohérence.</summary>
+    Task<LoadResult<IReadOnlyList<Playlist>>> LoadPlaylistsAsync(string path);
 
     // ------------------------------------------------------------------ //
     // Settings
