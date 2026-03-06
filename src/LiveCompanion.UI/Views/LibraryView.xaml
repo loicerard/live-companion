@@ -180,6 +180,12 @@
                     <Button Content="Ajouter à playlist &#x2192;"
                             Command="{Binding AddToPlaylistCommand}"
                             Style="{StaticResource AccentButtonStyle}" />
+                    <Button Content="Exporter .json"
+                            Command="{Binding ExportSongCommand}"
+                            Style="{StaticResource ActionButtonStyle}" />
+                    <Button Content="Importer .json"
+                            Command="{Binding ImportSongCommand}"
+                            Style="{StaticResource ActionButtonStyle}" />
                 </StackPanel>
 
                 <!-- Statut -->
@@ -270,13 +276,20 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <!-- Bouton supprimer playlist -->
-                <Button DockPanel.Dock="Top"
-                        Content="Supprimer playlist"
-                        Command="{Binding DeletePlaylistCommand}"
-                        Style="{StaticResource ActionButtonStyle}"
-                        HorizontalAlignment="Left"
-                        Margin="0,4,0,8" />
+                <!-- Boutons d'action playlists -->
+                <StackPanel DockPanel.Dock="Top"
+                            Orientation="Horizontal"
+                            Margin="0,4,0,8">
+                    <Button Content="Supprimer playlist"
+                            Command="{Binding DeletePlaylistCommand}"
+                            Style="{StaticResource ActionButtonStyle}" />
+                    <Button Content="Exporter playlists"
+                            Command="{Binding ExportPlaylistsCommand}"
+                            Style="{StaticResource ActionButtonStyle}" />
+                    <Button Content="Importer playlists"
+                            Command="{Binding ImportPlaylistsCommand}"
+                            Style="{StaticResource ActionButtonStyle}" />
+                </StackPanel>
 
                 <!-- Séparateur -->
                 <Border DockPanel.Dock="Top"

@@ -497,4 +497,56 @@ public partial class EditorViewModel : ViewModelBase
         _projectStore.Update(SelectedSong);
         StatusMessage = $"Morceau \"{SelectedSong.Title}\" sauvegardé.";
     }
+
+    // ------------------------------------------------------------------ //
+    // Sauvegarde / Chargement sur disque
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private async Task SaveSongToDiskAsync()
+    {
+        if (SelectedSong is null) return;
+
+        // Appliquer les modifications en cours avant export
+        foreach (var section in Sections) section.ApplyToModel();
+        foreach (var clip in AudioClips) clip.ApplyToModel();
+        foreach (var evt in MidiEvents) evt.ApplyToModel();
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Enregistrer le morceau",
+            Filter = "Fichier JSON|*.json",
+            FileName = $"{SelectedSong.Title}.json",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.SaveAsync(SelectedSong, dialog.FileName);
+        StatusMessage = result.IsValid
+            ? $"Morceau \"{SelectedSong.Title}\" enregistré → {dialog.FileName}"
+            : $"Erreur : {string.Join(", ", result.Errors)}";
+    }
+
+    [RelayCommand]
+    private async Task LoadSongFromDiskAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Charger un morceau",
+            Filter = "Fichier JSON|*.json|Tous|*.*",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.LoadAsync(dialog.FileName);
+        if (!result.IsValid)
+        {
+            StatusMessage = $"Erreur : {string.Join(", ", result.Errors)}";
+            return;
+        }
+
+        Songs.Add(result.Value!);
+        SelectedSong = result.Value;
+        StatusMessage = $"Morceau \"{result.Value!.Title}\" chargé depuis {System.IO.Path.GetFileName(dialog.FileName)}";
+    }
 }
