@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.UI.ViewModels;
@@ -31,6 +32,9 @@ public partial class App : Application
         var log = Services.GetRequiredService<ILogService>();
         log.Info(LogSource.UI, $"Live Companion started — EngineMode={engineMode}");
 
+        // Charger les morceaux et playlists sauvegardés
+        LoadPersistedData(Services).GetAwaiter().GetResult();
+
         // Démarrer la sauvegarde automatique
         var autoSave = Services.GetRequiredService<IAutoSaveService>();
         autoSave.Start();
@@ -40,6 +44,69 @@ public partial class App : Application
             DataContext = Services.GetRequiredService<MainViewModel>()
         };
         mainWindow.Show();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        // Sauvegarde finale avant fermeture
+        var autoSave = Services.GetRequiredService<IAutoSaveService>();
+        autoSave.SaveNowAsync().GetAwaiter().GetResult();
+        autoSave.Dispose();
+
+        base.OnExit(e);
+    }
+
+    /// <summary>
+    /// Charge les morceaux individuels et les playlists depuis le dossier de sauvegarde.
+    /// </summary>
+    private static async Task LoadPersistedData(IServiceProvider sp)
+    {
+        var store = sp.GetRequiredService<IProjectStore>();
+        var log = sp.GetRequiredService<ILogService>();
+        var savePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "LiveCompanion",
+            "songs");
+
+        if (!Directory.Exists(savePath))
+            return;
+
+        // Charger chaque morceau sauvegardé individuellement
+        var files = Directory.GetFiles(savePath, "*.json");
+        var loaded = 0;
+        foreach (var file in files)
+        {
+            if (Path.GetFileName(file).Equals("playlists.json", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            try
+            {
+                var result = await store.LoadAsync(file);
+                if (result.Validation.IsValid)
+                    loaded++;
+            }
+            catch (Exception ex)
+            {
+                log.Warn(LogSource.UI, $"[Startup] Erreur chargement '{file}' — {ex.Message}");
+            }
+        }
+
+        // Charger les playlists
+        var playlistFile = Path.Combine(savePath, "playlists.json");
+        if (File.Exists(playlistFile))
+        {
+            try
+            {
+                await store.LoadPlaylistsAsync(playlistFile);
+            }
+            catch (Exception ex)
+            {
+                log.Warn(LogSource.UI, $"[Startup] Erreur chargement playlists — {ex.Message}");
+            }
+        }
+
+        if (loaded > 0)
+            log.Info(LogSource.UI, $"[Startup] {loaded} morceau(x) restauré(s) depuis '{savePath}'");
     }
 
     /// <summary>

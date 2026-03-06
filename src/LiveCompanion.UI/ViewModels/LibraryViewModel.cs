@@ -372,19 +372,16 @@ public partial class LibraryViewModel : ViewModelBase
             return;
         }
 
-        var existingIds = _allSongs.Select(s => s.Id).ToHashSet();
-        var imported = 0;
+        // Écraser tous les morceaux existants
+        _allSongs.Clear();
         foreach (var song in result.Value!)
-        {
-            if (!existingIds.Contains(song.Id))
-            {
-                _allSongs.Add(song);
-                imported++;
-            }
-        }
+            _allSongs.Add(song);
 
         ApplyFilter();
-        StatusMessage = $"{imported} morceau(x) importé(s) depuis {System.IO.Path.GetFileName(dialog.FileName)}";
+        if (FilteredSongs.Count > 0)
+            SelectedSong = FilteredSongs[0];
+
+        StatusMessage = $"{result.Value!.Count} morceau(x) importé(s) depuis {System.IO.Path.GetFileName(dialog.FileName)}";
     }
 
     // ------------------------------------------------------------------ //
