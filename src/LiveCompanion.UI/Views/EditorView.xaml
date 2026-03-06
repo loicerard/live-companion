@@ -347,11 +347,17 @@
                             </Grid.ColumnDefinitions>
 
                             <Border Grid.Column="0" Style="{StaticResource CardStyle}">
-                                <ListBox ItemsSource="{Binding Sections}"
+                                <ListBox x:Name="SectionsListBox"
+                                         ItemsSource="{Binding Sections}"
                                          SelectedItem="{Binding SelectedSection}"
                                          Background="Transparent"
                                          BorderThickness="0"
-                                         ItemContainerStyle="{StaticResource EditorListItemStyle}">
+                                         AllowDrop="True"
+                                         ItemContainerStyle="{StaticResource EditorListItemStyle}"
+                                         PreviewMouseLeftButtonDown="SectionsListBox_PreviewMouseLeftButtonDown"
+                                         PreviewMouseMove="SectionsListBox_PreviewMouseMove"
+                                         Drop="SectionsListBox_Drop"
+                                         DragOver="SectionsListBox_DragOver">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Name}"

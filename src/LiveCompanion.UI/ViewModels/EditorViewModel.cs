@@ -277,6 +277,24 @@ public partial class EditorViewModel : ViewModelBase
         => SelectedSection is not null
         && Sections.IndexOf(SelectedSection) < Sections.Count - 1;
 
+    /// <summary>
+    /// Déplace une section de l'index <paramref name="fromIndex"/> vers <paramref name="toIndex"/>.
+    /// Utilisé par le drag &amp; drop dans la vue.
+    /// </summary>
+    public void MoveSection(int fromIndex, int toIndex)
+    {
+        if (fromIndex == toIndex) return;
+        if (fromIndex < 0 || fromIndex >= Sections.Count) return;
+        if (toIndex < 0 || toIndex >= Sections.Count) return;
+        if (_liveModeGuard.IsLive) return;
+
+        Sections.Move(fromIndex, toIndex);
+        ReorderSections();
+        SelectedSection = Sections[toIndex];
+        MoveSectionUpCommand.NotifyCanExecuteChanged();
+        MoveSectionDownCommand.NotifyCanExecuteChanged();
+    }
+
     private void ReorderSections()
     {
         for (int i = 0; i < Sections.Count; i++)
