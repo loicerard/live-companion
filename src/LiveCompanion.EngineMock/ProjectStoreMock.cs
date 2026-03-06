@@ -171,6 +171,86 @@ public sealed class ProjectStoreMock : IProjectStore
         return removed;
     }
 
+    /// <inheritdoc/>
+    public Task<ValidationResult> SaveAllSongsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        List<Song> songs;
+        lock (_lock)
+            songs = _songs.Values.ToList();
+
+        var validation = new ValidationResult();
+        foreach (var song in songs)
+        {
+            var sv = ModelValidator.ValidateSong(song);
+            validation.Merge(sv);
+        }
+
+        if (!validation.IsValid)
+            return Task.FromResult(validation);
+
+        var json = JsonSerializer.Serialize(songs, _jsonOptions);
+        lock (_lock)
+            _store[path] = json;
+
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] SaveAllSongs '{path}' ← {songs.Count} morceaux");
+        return Task.FromResult(validation);
+    }
+
+    /// <inheritdoc/>
+    public Task<LoadResult<IReadOnlyList<Song>>> LoadAllSongsAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
+
+        string? json;
+        lock (_lock)
+            _store.TryGetValue(path, out json);
+
+        if (json is null)
+        {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
+            return Task.FromResult(new LoadResult<IReadOnlyList<Song>>(null, validation));
+        }
+
+        List<Song>? songs;
+        try
+        {
+            songs = JsonSerializer.Deserialize<List<Song>>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé : {ex.Message}");
+            return Task.FromResult(new LoadResult<IReadOnlyList<Song>>(null, validation));
+        }
+
+        if (songs is null)
+        {
+            validation.AddError("json", "Désérialisation a retourné null.");
+            return Task.FromResult(new LoadResult<IReadOnlyList<Song>>(null, validation));
+        }
+
+        foreach (var song in songs)
+        {
+            var sv = ModelValidator.ValidateSong(song);
+            validation.Merge(sv);
+        }
+
+        if (!validation.IsValid)
+            return Task.FromResult(new LoadResult<IReadOnlyList<Song>>(null, validation));
+
+        lock (_lock)
+        {
+            foreach (var song in songs)
+                _songs[song.Id] = song;
+        }
+
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] LoadAllSongs '{path}' → {songs.Count} morceaux");
+        return Task.FromResult(new LoadResult<IReadOnlyList<Song>>((IReadOnlyList<Song>)songs.AsReadOnly(), validation));
+    }
+
     // ------------------------------------------------------------------ //
     // IProjectStore — Playlists
     // ------------------------------------------------------------------ //

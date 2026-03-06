@@ -50,6 +50,12 @@ public interface IProjectStore
     /// <returns><c>true</c> si le morceau existait et a été supprimé.</returns>
     bool Delete(Guid songId);
 
+    /// <summary>Sauvegarde tous les morceaux dans un fichier JSON.</summary>
+    Task<ValidationResult> SaveAllSongsAsync(string path);
+
+    /// <summary>Charge tous les morceaux depuis un fichier JSON.</summary>
+    Task<LoadResult<IReadOnlyList<Song>>> LoadAllSongsAsync(string path);
+
     // ------------------------------------------------------------------ //
     // Playlists
     // ------------------------------------------------------------------ //

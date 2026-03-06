@@ -186,6 +186,12 @@
                     <Button Content="Importer .json"
                             Command="{Binding ImportSongCommand}"
                             Style="{StaticResource ActionButtonStyle}" />
+                    <Button Content="Exporter tout"
+                            Command="{Binding ExportAllSongsCommand}"
+                            Style="{StaticResource ActionButtonStyle}" />
+                    <Button Content="Importer tout"
+                            Command="{Binding ImportAllSongsCommand}"
+                            Style="{StaticResource ActionButtonStyle}" />
                 </StackPanel>
 
                 <!-- Statut -->

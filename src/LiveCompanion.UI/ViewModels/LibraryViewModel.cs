@@ -333,6 +333,61 @@ public partial class LibraryViewModel : ViewModelBase
     }
 
     // ------------------------------------------------------------------ //
+    // Import / Export — Tous les morceaux (disque)
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private async Task ExportAllSongsAsync()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exporter tous les morceaux",
+            Filter = "Fichier JSON|*.json",
+            FileName = "morceaux.json",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.SaveAllSongsAsync(dialog.FileName);
+        StatusMessage = result.IsValid
+            ? $"{_allSongs.Count} morceau(x) exporté(s) → {dialog.FileName}"
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
+    }
+
+    [RelayCommand]
+    private async Task ImportAllSongsAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importer des morceaux",
+            Filter = "Fichier JSON|*.json|Tous|*.*",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _projectStore.LoadAllSongsAsync(dialog.FileName);
+        if (!result.Validation.IsValid)
+        {
+            StatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
+            return;
+        }
+
+        var existingIds = _allSongs.Select(s => s.Id).ToHashSet();
+        var imported = 0;
+        foreach (var song in result.Value!)
+        {
+            if (!existingIds.Contains(song.Id))
+            {
+                _allSongs.Add(song);
+                imported++;
+            }
+        }
+
+        ApplyFilter();
+        StatusMessage = $"{imported} morceau(x) importé(s) depuis {System.IO.Path.GetFileName(dialog.FileName)}";
+    }
+
+    // ------------------------------------------------------------------ //
     // Import / Export — Playlists (disque)
     // ------------------------------------------------------------------ //
 
