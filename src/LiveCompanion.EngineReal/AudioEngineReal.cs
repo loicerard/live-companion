@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
 
@@ -8,7 +9,7 @@ namespace LiveCompanion.EngineReal;
 /// Manages a <see cref="VoicePool"/> for multi-voice PCM playback with volume and fade ramping.
 /// Audio clips are decoded and cached by <see cref="AudioCache"/>, then played through the voice pool.
 /// </summary>
-public sealed class AudioEngineReal : IAudioEngine
+public sealed class AudioEngineReal : IAudioEngine, IAudioMeterProvider
 {
     private readonly ILogService _log;
     private readonly IAsioInterop _asio;
@@ -24,11 +25,19 @@ public sealed class AudioEngineReal : IAudioEngine
     /// </summary>
     private readonly Dictionary<string, (int Left, int Right)> _busChannelMap = new();
 
+    /// <summary>Référence au provider ASIO pour accéder aux niveaux de metering.</summary>
+    private AsioOutputProvider? _outputProvider;
+
     /// <summary>Buffer sizes computed from the ASIO driver capabilities.</summary>
     private IReadOnlyList<int> _supportedBufferSizes = [];
 
     /// <summary>Number of currently active (playing) voices.</summary>
     public int ActiveVoices => _voicePool.ActiveCount;
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, (float Left, float Right)> GetBusLevels()
+        => _outputProvider?.BusLevels
+           ?? ReadOnlyDictionary<string, (float Left, float Right)>.Empty;
 
     /// <summary>
     /// The voice pool used for multi-voice PCM playback.
@@ -194,6 +203,7 @@ public sealed class AudioEngineReal : IAudioEngine
         _cache.Clear();
         _busChannelMap.Clear();
         _supportedBufferSizes = [];
+        _outputProvider = null;
         _config = null;
         _initialized = false;
 
@@ -256,6 +266,7 @@ public sealed class AudioEngineReal : IAudioEngine
             sampleRate: sampleRate,
             bufferSize: bufferSize);
 
+        _outputProvider = provider;
         _asio.InitPlayback(provider);
         _asio.Play();
 

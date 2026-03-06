@@ -89,6 +89,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<AudioEngineMock>();
         services.AddSingleton<IAudioEngine>(sp
             => sp.GetRequiredService<AudioEngineMock>());
+        services.AddSingleton<IAudioMeterProvider>(sp
+            => sp.GetRequiredService<AudioEngineMock>());
 
         services.AddSingleton<IMidiEngine, MidiEngineMock>();
         services.AddSingleton<ITransportController, TransportControllerMock>();
@@ -126,6 +128,8 @@ public static class ServiceCollectionExtensions
         // puisse accéder à VoicePool.ActiveCount (absent de IAudioEngine).
         services.AddSingleton<AudioEngineReal>();
         services.AddSingleton<IAudioEngine>(sp
+            => sp.GetRequiredService<AudioEngineReal>());
+        services.AddSingleton<IAudioMeterProvider>(sp
             => sp.GetRequiredService<AudioEngineReal>());
 
         services.AddSingleton<MidiEngineReal>();

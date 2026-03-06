@@ -23,6 +23,15 @@ public sealed class AsioOutputProvider : IWaveProvider
     /// <summary>Nombre d'échantillons par buffer (basé sur bufferSize).</summary>
     private readonly int _maxSampleCount;
 
+    /// <summary>Niveaux peak par bus, mis à jour à chaque callback ASIO.</summary>
+    private Dictionary<string, (float Left, float Right)> _busLevels = new();
+
+    /// <summary>
+    /// Retourne les niveaux peak actuels par bus (0.0 à 1.0).
+    /// Thread-safe : la référence du dictionnaire est remplacée atomiquement.
+    /// </summary>
+    public IReadOnlyDictionary<string, (float Left, float Right)> BusLevels => _busLevels;
+
     public WaveFormat WaveFormat { get; }
 
     /// <summary>
@@ -75,6 +84,23 @@ public sealed class AsioOutputProvider : IWaveProvider
 
         // 1. Mixer les voices dans les bus buffers
         _voicePool.FillBuffers(_busBuffers, sampleCount);
+
+        // 1b. Mesurer les niveaux peak par bus
+        var levels = new Dictionary<string, (float Left, float Right)>(_busBuffers.Count);
+        foreach (var (busName, (left, right)) in _busBuffers)
+        {
+            float peakL = 0f, peakR = 0f;
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float absL = MathF.Abs(left[i]);
+                float absR = MathF.Abs(right[i]);
+                if (absL > peakL) peakL = absL;
+                if (absR > peakR) peakR = absR;
+            }
+            // Clamp à 1.0
+            levels[busName] = (MathF.Min(peakL, 1f), MathF.Min(peakR, 1f));
+        }
+        _busLevels = levels;
 
         // 2. Effacer les channel buffers
         for (int ch = 0; ch < _outputChannelCount; ch++)
