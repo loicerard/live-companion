@@ -524,7 +524,7 @@ public partial class EditorViewModel : ViewModelBase
         var result = await _projectStore.SaveAsync(SelectedSong, dialog.FileName);
         StatusMessage = result.IsValid
             ? $"Morceau \"{SelectedSong.Title}\" enregistré → {dialog.FileName}"
-            : $"Erreur : {string.Join(", ", result.Errors)}";
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
     }
 
     [RelayCommand]
@@ -539,9 +539,9 @@ public partial class EditorViewModel : ViewModelBase
         if (dialog.ShowDialog() != true) return;
 
         var result = await _projectStore.LoadAsync(dialog.FileName);
-        if (!result.IsValid)
+        if (!result.Validation.IsValid)
         {
-            StatusMessage = $"Erreur : {string.Join(", ", result.Errors)}";
+            StatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
             return;
         }
 

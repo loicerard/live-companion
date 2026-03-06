@@ -300,9 +300,9 @@ public partial class LibraryViewModel : ViewModelBase
         if (dialog.ShowDialog() != true) return;
 
         var result = await _projectStore.LoadAsync(dialog.FileName);
-        if (!result.IsValid)
+        if (!result.Validation.IsValid)
         {
-            StatusMessage = $"Erreur : {string.Join(", ", result.Errors)}";
+            StatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
             return;
         }
 
@@ -329,7 +329,7 @@ public partial class LibraryViewModel : ViewModelBase
         var result = await _projectStore.SaveAsync(SelectedSong, dialog.FileName);
         StatusMessage = result.IsValid
             ? $"Morceau \"{SelectedSong.Title}\" exporté → {dialog.FileName}"
-            : $"Erreur : {string.Join(", ", result.Errors)}";
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
     }
 
     // ------------------------------------------------------------------ //
@@ -351,7 +351,7 @@ public partial class LibraryViewModel : ViewModelBase
         var result = await _projectStore.SavePlaylistsAsync(dialog.FileName);
         StatusMessage = result.IsValid
             ? $"Playlists exportées → {dialog.FileName}"
-            : $"Erreur : {string.Join(", ", result.Errors)}";
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
     }
 
     [RelayCommand]
@@ -366,9 +366,9 @@ public partial class LibraryViewModel : ViewModelBase
         if (dialog.ShowDialog() != true) return;
 
         var result = await _projectStore.LoadPlaylistsAsync(dialog.FileName);
-        if (!result.IsValid)
+        if (!result.Validation.IsValid)
         {
-            StatusMessage = $"Erreur : {string.Join(", ", result.Errors)}";
+            StatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
             return;
         }
 
