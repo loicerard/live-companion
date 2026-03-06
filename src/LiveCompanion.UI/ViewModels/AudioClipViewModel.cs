@@ -1,6 +1,8 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.Core.Models;
 
 namespace LiveCompanion.UI.ViewModels;
@@ -18,8 +20,6 @@ public partial class AudioClipViewModel : ObservableValidator
         _model = model;
         _name = model.Name;
         _filePath = model.FilePath;
-        _busName = model.BusName;
-        _volume = model.Volume;
         _fadeInSeconds = model.FadeInSeconds;
         _fadeOutSeconds = model.FadeOutSeconds;
         _syncMode = model.SyncMode;
@@ -27,6 +27,10 @@ public partial class AudioClipViewModel : ObservableValidator
         _bar = model.Position.Bar;
         _beat = model.Position.Beat;
         _tick = model.Position.Tick;
+
+        // Initialiser les sends
+        Sends = new ObservableCollection<BusSendViewModel>(
+            model.Sends.Select(s => new BusSendViewModel(s)));
     }
 
     public Guid Id => _model.Id;
@@ -40,15 +44,39 @@ public partial class AudioClipViewModel : ObservableValidator
     [ObservableProperty]
     private string _filePath;
 
-    [ObservableProperty]
-    [NotifyDataErrorInfo]
-    [Required(ErrorMessage = "Le bus est requis.")]
-    private string _busName;
+    // ------------------------------------------------------------------ //
+    // Sends (remplace BusName/Volume)
+    // ------------------------------------------------------------------ //
+
+    public ObservableCollection<BusSendViewModel> Sends { get; }
 
     [ObservableProperty]
-    [NotifyDataErrorInfo]
-    [Range(0.0, 1.0, ErrorMessage = "Le volume doit être entre 0 et 1.")]
-    private double _volume;
+    private BusSendViewModel? _selectedSend;
+
+    [RelayCommand]
+    private void AddSend()
+    {
+        var send = new BusSend { BusName = "Main", Volume = 1.0 };
+        _model.Sends.Add(send);
+        var vm = new BusSendViewModel(send);
+        Sends.Add(vm);
+        SelectedSend = vm;
+        OnPropertyChanged(nameof(DisplaySummary));
+    }
+
+    [RelayCommand]
+    private void RemoveSend(BusSendViewModel? send)
+    {
+        if (send is null || Sends.Count <= 1) return; // Garder au moins 1 send
+        _model.Sends.Remove(send.Model);
+        Sends.Remove(send);
+        SelectedSend = Sends.LastOrDefault();
+        OnPropertyChanged(nameof(DisplaySummary));
+    }
+
+    // ------------------------------------------------------------------ //
+    // Autres propriétés
+    // ------------------------------------------------------------------ //
 
     [ObservableProperty]
     [NotifyDataErrorInfo]
@@ -89,12 +117,13 @@ public partial class AudioClipViewModel : ObservableValidator
     {
         _model.Name = Name;
         _model.FilePath = FilePath;
-        _model.BusName = BusName;
-        _model.Volume = Volume;
         _model.FadeInSeconds = FadeInSeconds;
         _model.FadeOutSeconds = FadeOutSeconds;
         _model.SyncMode = SyncMode;
         _model.Position = new TimelinePosition(SectionIndex, Bar, Beat, Tick);
+
+        foreach (var send in Sends)
+            send.ApplyToModel();
     }
 
     /// <summary>Référence vers le modèle sous-jacent.</summary>
@@ -107,5 +136,12 @@ public partial class AudioClipViewModel : ObservableValidator
     public new bool HasErrors => ((INotifyDataErrorInfo)this).HasErrors;
 
     /// <summary>Résumé affiché dans la liste.</summary>
-    public string DisplaySummary => $"{Name} — {BusName} — {SyncMode}";
+    public string DisplaySummary
+    {
+        get
+        {
+            var buses = string.Join(", ", Sends.Select(s => s.BusName));
+            return $"{Name} — {buses} — {SyncMode}";
+        }
+    }
 }

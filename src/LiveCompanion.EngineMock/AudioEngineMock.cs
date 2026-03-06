@@ -76,23 +76,26 @@ public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider
         ArgumentNullException.ThrowIfNull(clip);
         ThrowIfNotInitialized();
 
-        if (Volatile.Read(ref _activeVoices) >= MaxVoices)
+        foreach (var send in clip.Sends)
         {
-            _log.Warn(LogSource.EngineMock, $"[AudioEngine] Voice limit ({MaxVoices}) reached — clip '{clip.Name}' dropped.");
-            return Task.CompletedTask;
+            if (Volatile.Read(ref _activeVoices) >= MaxVoices)
+            {
+                _log.Warn(LogSource.EngineMock, $"[AudioEngine] Voice limit ({MaxVoices}) reached — clip '{clip.Name}' send '{send.BusName}' dropped.");
+                continue;
+            }
+
+            Interlocked.Increment(ref _activeVoices);
+            _log.Debug(LogSource.EngineMock, $"[AudioEngine] Playing '{clip.Name}' on bus '{send.BusName}' " +
+                            $"vol={send.Volume:F2} — active voices={ActiveVoices}");
+
+            // Simule une courte durée de lecture (200 ms) puis libère la voix.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(200).ConfigureAwait(false);
+                Interlocked.Decrement(ref _activeVoices);
+                _log.Debug(LogSource.EngineMock, $"[AudioEngine] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
+            });
         }
-
-        Interlocked.Increment(ref _activeVoices);
-        _log.Debug(LogSource.EngineMock, $"[AudioEngine] Playing '{clip.Name}' on bus '{clip.BusName}' " +
-                        $"vol={clip.Volume:F2} — active voices={ActiveVoices}");
-
-        // Simule une courte durée de lecture (200 ms) puis libère la voix.
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(200).ConfigureAwait(false);
-            Interlocked.Decrement(ref _activeVoices);
-            _log.Debug(LogSource.EngineMock, $"[AudioEngine] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
-        });
 
         return Task.CompletedTask;
     }

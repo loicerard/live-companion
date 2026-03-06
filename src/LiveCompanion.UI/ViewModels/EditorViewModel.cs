@@ -313,8 +313,7 @@ public partial class EditorViewModel : ViewModelBase
         var clip = new AudioClip
         {
             Name = $"Sample {AudioClips.Count + 1}",
-            BusName = "Main",
-            Volume = 1.0,
+            Sends = [new BusSend { BusName = "Main", Volume = 1.0 }],
             SyncMode = SyncMode.Free,
             Position = TimelinePosition.Zero,
         };

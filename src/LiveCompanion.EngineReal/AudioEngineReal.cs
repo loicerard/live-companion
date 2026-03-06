@@ -159,23 +159,26 @@ public sealed class AudioEngineReal : IAudioEngine, IAudioMeterProvider
             return Task.CompletedTask;
         }
 
-        bool allocated = _voicePool.TryAllocate(
-            cached,
-            clip.BusName,
-            (float)clip.Volume,
-            clip.FadeInSeconds,
-            clip.FadeOutSeconds);
+        foreach (var send in clip.Sends)
+        {
+            bool allocated = _voicePool.TryAllocate(
+                cached,
+                send.BusName,
+                (float)send.Volume,
+                clip.FadeInSeconds,
+                clip.FadeOutSeconds);
 
-        if (allocated)
-        {
-            _log.Debug(LogSource.EngineReal,
-                $"[AudioEngine] Playing '{clip.Name}' on bus '{clip.BusName}' " +
-                $"vol={clip.Volume:F2} — active voices={_voicePool.ActiveCount}");
-        }
-        else
-        {
-            _log.Warn(LogSource.EngineReal,
-                $"[AudioEngine] Voice limit reached — clip '{clip.Name}' dropped.");
+            if (allocated)
+            {
+                _log.Debug(LogSource.EngineReal,
+                    $"[AudioEngine] Playing '{clip.Name}' on bus '{send.BusName}' " +
+                    $"vol={send.Volume:F2} — active voices={_voicePool.ActiveCount}");
+            }
+            else
+            {
+                _log.Warn(LogSource.EngineReal,
+                    $"[AudioEngine] Voice limit reached — clip '{clip.Name}' send '{send.BusName}' dropped.");
+            }
         }
 
         return Task.CompletedTask;

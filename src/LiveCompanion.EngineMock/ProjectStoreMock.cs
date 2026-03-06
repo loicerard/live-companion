@@ -84,6 +84,9 @@ public sealed class ProjectStoreMock : IProjectStore
             return Task.FromResult(new LoadResult<Song>(null, validation));
         }
 
+        foreach (var clip in song.AudioClips)
+            clip.MigrateLegacyFields();
+
         var modelValidation = ModelValidator.ValidateSong(song);
         if (!modelValidation.IsValid)
             return Task.FromResult(new LoadResult<Song>(null, modelValidation));
@@ -234,6 +237,9 @@ public sealed class ProjectStoreMock : IProjectStore
 
         foreach (var song in songs)
         {
+            foreach (var clip in song.AudioClips)
+                clip.MigrateLegacyFields();
+
             var sv = ModelValidator.ValidateSong(song);
             validation.Merge(sv);
         }

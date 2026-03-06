@@ -34,7 +34,7 @@ public class AudioEngineMockMeteringTests
     public async Task GetBusLevels_WithActiveVoices_ShouldReturnNonZero()
     {
         await _engine.InitializeAsync(ConfigWithBuses);
-        var clip = new AudioClip { Name = "test", FilePath = "test.wav", BusName = "Main" };
+        var clip = new AudioClip { Name = "test", FilePath = "test.wav", Sends = [new BusSend { BusName = "Main" }] };
         await _engine.PlayClipAsync(clip);
 
         var levels = _engine.GetBusLevels();
@@ -60,7 +60,7 @@ public class AudioEngineMockMeteringTests
         // Play many clips to max out voices
         for (int i = 0; i < 15; i++)
         {
-            var clip = new AudioClip { Name = $"clip{i}", FilePath = $"test{i}.wav", BusName = "Main" };
+            var clip = new AudioClip { Name = $"clip{i}", FilePath = $"test{i}.wav", Sends = [new BusSend { BusName = "Main" }] };
             await _engine.PlayClipAsync(clip);
         }
 

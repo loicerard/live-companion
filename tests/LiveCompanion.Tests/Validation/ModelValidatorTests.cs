@@ -150,7 +150,8 @@ public class ModelValidatorTests
         var song = new Song
         {
             Title = "Test",
-            AudioClips = { new AudioClip { Name = "Drums", FilePath = "/audio/drums.wav", Volume = volume } },
+            AudioClips = { new AudioClip { Name = "Drums", FilePath = "/audio/drums.wav",
+                Sends = [new BusSend { BusName = "Main", Volume = volume }] } },
         };
 
         var result = ModelValidator.ValidateSong(song);
@@ -241,7 +242,8 @@ public class ModelValidatorTests
         {
             Title = "",
             Sections = { new Section { Name = "Bad", Tempo = 0, BarCount = 0, TimeSignature = TimeSignature.Default } },
-            AudioClips = { new AudioClip { Name = "X", FilePath = "", Volume = 2.0 } },
+            AudioClips = { new AudioClip { Name = "X", FilePath = "",
+                Sends = [new BusSend { BusName = "Main", Volume = 2.0 }] } },
         };
 
         var result = ModelValidator.ValidateSong(song);
