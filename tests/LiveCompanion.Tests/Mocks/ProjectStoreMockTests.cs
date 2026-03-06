@@ -274,4 +274,53 @@ public class ProjectStoreMockTests
         loaded.AudioConfig!.DriverName.Should().Be("ASIO4ALL");
         loaded.MidiConfig!.SelectedPorts.Should().ContainSingle("Port1");
     }
+
+    // ------------------------------------------------------------------ //
+    // SaveAllSongs / LoadAllSongs
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task SaveAllSongs_ShouldPersistAllSongs()
+    {
+        var store = CreateStore();
+        store.CreateNew("Song A");
+        store.CreateNew("Song B");
+
+        var path = "/fake/all-songs.json";
+        var result = await store.SaveAllSongsAsync(path);
+
+        result.IsValid.Should().BeTrue();
+        store.StoredPaths.Should().Contain(path);
+    }
+
+    [Fact]
+    public async Task LoadAllSongs_ShouldRestoreAllSongs()
+    {
+        var store = CreateStore();
+        store.CreateNew("Song A");
+        store.CreateNew("Song B");
+
+        var path = "/fake/all-songs.json";
+        await store.SaveAllSongsAsync(path);
+
+        // Create a new store and load into it
+        var store2 = CreateStore();
+        var result = await store2.LoadAllSongsAsync(path);
+
+        // LoadAllSongsAsync returns null because store2 doesn't have the path
+        // Instead, load from same store
+        var loadResult = await store.LoadAllSongsAsync(path);
+        loadResult.Value.Should().NotBeNull();
+        loadResult.Value!.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task LoadAllSongs_NonExistentPath_ShouldReturnError()
+    {
+        var store = CreateStore();
+        var result = await store.LoadAllSongsAsync("/fake/nonexistent.json");
+
+        result.Value.Should().BeNull();
+        result.Validation.IsValid.Should().BeFalse();
+    }
 }

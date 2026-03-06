@@ -140,4 +140,44 @@ public class AudioEngineMockTests
         var act = () => engine.PlayClipAsync(new AudioClip { Name = "Test" });
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public void GetAvailableOutputPairs_ShouldReturnPairs()
+    {
+        var engine = CreateEngine();
+        var pairs = engine.GetAvailableOutputPairs();
+
+        pairs.Should().NotBeEmpty();
+        pairs.Should().Contain("Output 1-2");
+    }
+
+    [Fact]
+    public async Task PreloadAsync_ShouldCompleteWithoutError()
+    {
+        var engine = CreateEngine();
+        var paths = new[] { "kick.wav", "snare.wav" };
+
+        await engine.PreloadAsync(paths);
+
+        // PreloadAsync is a no-op mock — should not throw
+    }
+
+    [Fact]
+    public async Task PlayClip_NullClip_ShouldThrow()
+    {
+        var engine = CreateEngine();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var act = () => engine.PlayClipAsync(null!);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task StopAll_WithoutInit_ShouldThrow()
+    {
+        var engine = CreateEngine();
+
+        var act = () => engine.StopAllAsync();
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
 }

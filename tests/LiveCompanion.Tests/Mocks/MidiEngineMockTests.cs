@@ -97,4 +97,23 @@ public class MidiEngineMockTests
         var act = () => engine.SendEventAsync(new MidiEvent { Type = MidiEventType.NoteOn });
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task SendEvent_NullEvent_ShouldThrow()
+    {
+        var engine = CreateEngine();
+        await engine.InitializeAsync(DefaultConfig);
+
+        var act = () => engine.SendEventAsync(null!);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Initialize_NullConfig_ShouldThrow()
+    {
+        var engine = CreateEngine();
+
+        var act = () => engine.InitializeAsync(null!);
+        act.Should().ThrowAsync<ArgumentNullException>();
+    }
 }
