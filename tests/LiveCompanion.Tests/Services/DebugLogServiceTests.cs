@@ -75,4 +75,69 @@ public class DebugLogServiceTests
         entries[2].Level.Should().Be(LogLevel.Warning);
         entries[3].Level.Should().Be(LogLevel.Error);
     }
+
+    [Fact]
+    public void Log_ShouldIncludeTimestamp()
+    {
+        var log = new DebugLogService();
+        var before = DateTime.UtcNow;
+
+        log.Log(LogLevel.Info, LogSource.Core, "Timestamped");
+
+        var entry = log.GetEntries().Single();
+        entry.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
+    }
+
+    [Theory]
+    [InlineData(LogSource.Core)]
+    [InlineData(LogSource.UI)]
+    [InlineData(LogSource.EngineMock)]
+    [InlineData(LogSource.EngineReal)]
+    public void Log_AllSources_ShouldBeAccepted(LogSource source)
+    {
+        var log = new DebugLogService();
+
+        log.Log(LogLevel.Info, source, "Test");
+
+        log.GetEntries().Should().ContainSingle().Which.Source.Should().Be(source);
+    }
+
+    [Fact]
+    public void GetEntries_ShouldReturnCopy()
+    {
+        var log = new DebugLogService();
+        log.Log(LogLevel.Info, LogSource.Core, "Entry");
+
+        var entries1 = log.GetEntries();
+        var entries2 = log.GetEntries();
+
+        entries1.Should().NotBeSameAs(entries2);
+    }
+
+    [Fact]
+    public void Log_CircularBuffer_ShouldKeepNewest()
+    {
+        var log = new DebugLogService();
+
+        for (int i = 0; i < DebugLogService.MaxEntries + 50; i++)
+            log.Log(LogLevel.Debug, LogSource.Core, $"Entry {i}");
+
+        var entries = log.GetEntries();
+        entries.Should().HaveCount(DebugLogService.MaxEntries);
+        entries.Last().Message.Should().Be($"Entry {DebugLogService.MaxEntries + 49}");
+    }
+
+    [Fact]
+    public void EntryAdded_ShouldContainCorrectSource()
+    {
+        var log = new DebugLogService();
+        LogEntry? received = null;
+
+        log.EntryAdded += entry => received = entry;
+        log.Log(LogLevel.Warning, LogSource.EngineReal, "Warning msg");
+
+        received.Should().NotBeNull();
+        received!.Source.Should().Be(LogSource.EngineReal);
+        received.Level.Should().Be(LogLevel.Warning);
+    }
 }

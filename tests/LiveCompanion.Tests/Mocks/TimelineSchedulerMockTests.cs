@@ -172,4 +172,155 @@ public class TimelineSchedulerMockTests : IDisposable
 
         sections.Should().Contain(1);
     }
+
+    [Fact]
+    public async Task Start_WithOutOfRangeSectionIndex_ShouldClamp()
+    {
+        var song = CreateTestSong(sectionCount: 2);
+
+        // Index 10 should be clamped to last section (index 1)
+        await _scheduler.StartAsync(song, startSectionIndex: 10);
+
+        _scheduler.CurrentPosition.SectionIndex.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task NextSection_WhenCannotTransition_ShouldBeIgnored()
+    {
+        // Create scheduler with always-active voices
+        using var scheduler = new TimelineSchedulerMock(_log, hasActiveVoices: () => true);
+        var song = CreateTestSong(sectionCount: 3);
+        await scheduler.StartAsync(song);
+
+        await scheduler.NextSectionAsync();
+
+        // Should remain on section 0 because voices are active
+        scheduler.CurrentPosition.SectionIndex.Should().Be(0);
+    }
+
+    [Fact]
+    public void CanTransitionNow_WhenNotRunning_ShouldBeTrue()
+    {
+        // Before starting, CanTransitionNow should be true (not running)
+        _scheduler.CanTransitionNow.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CanTransitionNow_WithActiveVoices_ShouldBeFalse()
+    {
+        await _audioEngine.InitializeAsync(new AudioConfig { DriverName = "Test", BufferSize = 256 });
+        var song = CreateTestSong();
+        await _scheduler.StartAsync(song);
+
+        // Play a clip to set active voices > 0
+        await _audioEngine.PlayClipAsync(new AudioClip { Name = "Kick" });
+
+        _scheduler.CanTransitionNow.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TriggerEvents_ShouldPlayClipAtCorrectPosition()
+    {
+        var audioEngine = new AudioEngineMock(_log);
+        await audioEngine.InitializeAsync(new AudioConfig { DriverName = "Test", BufferSize = 256 });
+
+        using var scheduler = new TimelineSchedulerMock(_log, audioEngine: audioEngine);
+
+        var song = CreateTestSong(sectionCount: 1, barsPerSection: 2, tempo: 600);
+        // Clip at position (0, 1, 1, 0) = start of song
+        song.AudioClips.Add(new AudioClip
+        {
+            Name = "StartClip",
+            FilePath = "clip.wav",
+            Position = TimelinePosition.Zero,
+            SyncMode = SyncMode.Free,
+        });
+
+        await scheduler.StartAsync(song);
+
+        // The clip at position (0,1,1,0) should have been triggered on start
+        audioEngine.ActiveVoices.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task TriggerEvents_BarAligned_ShouldTriggerOnBeatOne()
+    {
+        var audioEngine = new AudioEngineMock(_log);
+        await audioEngine.InitializeAsync(new AudioConfig { DriverName = "Test", BufferSize = 256 });
+
+        using var scheduler = new TimelineSchedulerMock(_log, audioEngine: audioEngine);
+
+        var song = CreateTestSong(sectionCount: 1, barsPerSection: 2, tempo: 600);
+        // BarAligned clip at bar 1 — should trigger at beat 1 only
+        song.AudioClips.Add(new AudioClip
+        {
+            Name = "BarClip",
+            FilePath = "bar.wav",
+            Position = TimelinePosition.Zero,
+            SyncMode = SyncMode.BarAligned,
+        });
+
+        await scheduler.StartAsync(song);
+
+        // BarAligned on bar 1 should trigger at start (beat 1)
+        audioEngine.ActiveVoices.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task TriggerEvents_ShouldSendMidiEvent()
+    {
+        var midiEngine = new MidiEngineMock(_log);
+        await midiEngine.InitializeAsync(new MidiConfig { SelectedPorts = { "MockMIDI Port 1" } });
+
+        using var scheduler = new TimelineSchedulerMock(_log, midiEngine: midiEngine);
+
+        var song = CreateTestSong(sectionCount: 1, barsPerSection: 2, tempo: 600);
+        song.MidiEvents.Add(new MidiEvent
+        {
+            Type = MidiEventType.ProgramChange,
+            Channel = 1,
+            Data1 = 42,
+            Position = TimelinePosition.Zero,
+        });
+
+        await scheduler.StartAsync(song);
+
+        // MIDI event at start position should have been sent
+        midiEngine.SentEvents.Should().ContainSingle();
+        midiEngine.SentEvents[0].Data1.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task Start_WithDifferentTimeSignature_ShouldAdvanceCorrectly()
+    {
+        // 3/4 time signature: section should end after 3 beats per bar
+        var song = new Song { Title = "Waltz" };
+        song.Sections.Add(new Section
+        {
+            Name = "3/4 Section",
+            Tempo = 600, // 100ms per beat
+            TimeSignature = new TimeSignature(3, 4),
+            BarCount = 1,
+            Order = 0,
+        });
+        song.Sections.Add(new Section
+        {
+            Name = "Next Section",
+            Tempo = 600,
+            TimeSignature = new TimeSignature(3, 4),
+            BarCount = 1,
+            Order = 1,
+        });
+
+        var sections = new List<int>();
+        _scheduler.SectionChanged += (_, idx) => sections.Add(idx);
+
+        await _scheduler.StartAsync(song);
+
+        // 3/4 with 1 bar at 600 BPM = 3 beats * 100ms = 300ms
+        await Task.Delay(600);
+        await _scheduler.StopAsync();
+
+        sections.Should().Contain(1);
+    }
 }

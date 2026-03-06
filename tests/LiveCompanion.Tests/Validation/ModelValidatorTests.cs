@@ -333,4 +333,99 @@ public class ModelValidatorTests
         result.IsValid.Should().BeFalse();
         result.Issues.Should().Contain(i => i.Field.Contains("Name"));
     }
+
+    // ------------------------------------------------------------------ //
+    // ValidateSong — cas limites valides
+    // ------------------------------------------------------------------ //
+
+    [Theory]
+    [InlineData(20)]
+    [InlineData(120)]
+    [InlineData(300)]
+    public void ValidateSong_ValidTempoBoundaries_ShouldPass(double tempo)
+    {
+        var song = new Song
+        {
+            Title = "Test",
+            Sections = { new Section { Name = "S", Tempo = tempo, BarCount = 4, TimeSignature = TimeSignature.Default } },
+        };
+
+        ModelValidator.ValidateSong(song).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ValidateSong_NegativeFadeOut_ShouldReturnError()
+    {
+        var song = new Song
+        {
+            Title = "Test",
+            AudioClips = { new AudioClip { Name = "Clip", FilePath = "/audio/clip.wav", FadeOutSeconds = -1 } },
+        };
+
+        var result = ModelValidator.ValidateSong(song);
+
+        result.IsValid.Should().BeFalse();
+        result.Issues.Should().Contain(i => i.Field.Contains("FadeOut"));
+    }
+
+    [Fact]
+    public void ValidateSong_ValidMidiValues_ShouldPass()
+    {
+        var song = new Song
+        {
+            Title = "Test",
+            MidiEvents = { new MidiEvent { Channel = 1, Data1 = 0, Data2 = 127 } },
+        };
+
+        ModelValidator.ValidateSong(song).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(1, 4)]
+    [InlineData(3, 4)]
+    [InlineData(6, 8)]
+    [InlineData(7, 8)]
+    [InlineData(4, 16)]
+    public void ValidateSong_ValidTimeSignatures_ShouldPass(int num, int den)
+    {
+        var song = new Song
+        {
+            Title = "Test",
+            Sections = { new Section { Name = "S", Tempo = 120, BarCount = 4, TimeSignature = new TimeSignature(num, den) } },
+        };
+
+        ModelValidator.ValidateSong(song).IsValid.Should().BeTrue();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Null guards
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public void ValidateSong_NullSong_ShouldThrow()
+    {
+        var act = () => ModelValidator.ValidateSong(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void ValidateSongFiles_NullSong_ShouldThrow()
+    {
+        var act = () => ModelValidator.ValidateSongFiles(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void ValidatePlaylists_NullPlaylists_ShouldThrow()
+    {
+        var act = () => ModelValidator.ValidatePlaylists(null!, []);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void ValidatePlaylists_NullSongs_ShouldThrow()
+    {
+        var act = () => ModelValidator.ValidatePlaylists([], null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
 }

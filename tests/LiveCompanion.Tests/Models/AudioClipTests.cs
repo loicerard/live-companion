@@ -1,5 +1,6 @@
 using FluentAssertions;
 using LiveCompanion.Core.Models;
+using LiveCompanion.Core.Validation;
 using Xunit;
 
 namespace LiveCompanion.Tests.Models;
@@ -74,5 +75,63 @@ public class AudioClipTests
         clip.Position.SectionIndex.Should().Be(2);
         clip.Position.Bar.Should().Be(3);
         clip.Position.Beat.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.5)]
+    [InlineData(1.0)]
+    public void Volume_BoundaryValues_ShouldPassValidation(double volume)
+    {
+        var song = new Song
+        {
+            Title = "Test",
+            AudioClips = { new AudioClip { Name = "Clip", FilePath = "/audio/clip.wav", Volume = volume } },
+        };
+
+        ModelValidator.ValidateSong(song).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(-0.1)]
+    [InlineData(1.1)]
+    [InlineData(2.0)]
+    public void Volume_OutOfRange_ShouldFailValidation(double volume)
+    {
+        var song = new Song
+        {
+            Title = "Test",
+            AudioClips = { new AudioClip { Name = "Clip", FilePath = "/audio/clip.wav", Volume = volume } },
+        };
+
+        var result = ModelValidator.ValidateSong(song);
+        result.IsValid.Should().BeFalse();
+        result.Issues.Should().Contain(i => i.Field.Contains("Volume"));
+    }
+
+    [Fact]
+    public void FadeOut_Negative_ShouldFailValidation()
+    {
+        var song = new Song
+        {
+            Title = "Test",
+            AudioClips = { new AudioClip { Name = "Clip", FilePath = "/audio/clip.wav", FadeOutSeconds = -1 } },
+        };
+
+        var result = ModelValidator.ValidateSong(song);
+        result.IsValid.Should().BeFalse();
+        result.Issues.Should().Contain(i => i.Field.Contains("FadeOut"));
+    }
+
+    [Fact]
+    public void BusName_DefaultIsMain()
+    {
+        new AudioClip().BusName.Should().Be("Main");
+    }
+
+    [Fact]
+    public void SyncMode_DefaultIsFree()
+    {
+        new AudioClip().SyncMode.Should().Be(SyncMode.Free);
     }
 }
