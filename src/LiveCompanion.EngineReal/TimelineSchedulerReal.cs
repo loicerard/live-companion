@@ -100,15 +100,18 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
 
         startSectionIndex = Math.Clamp(startSectionIndex, 0, song.Sections.Count - 1);
 
-        // Preload all audio clips before starting playback
-        if (_audioEngine is not null && song.AudioClips.Count > 0)
+        // Preload all audio clips (+ click track) before starting playback
+        if (_audioEngine is not null)
         {
             var paths = song.AudioClips
                 .Select(c => c.FilePath)
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .Distinct(StringComparer.OrdinalIgnoreCase);
+                .Where(p => !string.IsNullOrWhiteSpace(p));
 
-            await _audioEngine.PreloadAsync(paths).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(song.ClickTrackPath))
+                paths = paths.Append(song.ClickTrackPath);
+
+            var distinct = paths.Distinct(StringComparer.OrdinalIgnoreCase);
+            await _audioEngine.PreloadAsync(distinct).ConfigureAwait(false);
         }
 
         lock (_lock)
@@ -137,6 +140,20 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
 
         _log.Debug(LogSource.EngineReal,
             $"[Scheduler] Start — section={startSectionIndex} '{song.Sections[startSectionIndex].Name}'");
+
+        // Lancer la piste de clic dès le départ (joue pendant tout le morceau)
+        if (!string.IsNullOrWhiteSpace(song.ClickTrackPath) && _audioEngine is not null)
+        {
+            var clickClip = new AudioClip
+            {
+                Name = "__click_track__",
+                FilePath = song.ClickTrackPath,
+                Sends = [new BusSend { BusName = "Click", Volume = 1.0 }],
+                Position = TimelinePosition.Zero,
+            };
+            _ = _audioEngine.PlayClipAsync(clickClip);
+            _log.Debug(LogSource.EngineReal, "[Scheduler] Click track started");
+        }
 
         var pos = CurrentPosition;
         TriggerEventsAtPosition(song, pos);
@@ -320,6 +337,10 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
             {
                 _log.Debug(LogSource.EngineReal, $"[Scheduler] Auto-advance → section={sectionToRaise}");
                 SectionChanged?.Invoke(this, sectionToRaise.Value);
+
+                // Déclencher clips/MIDI à la première beat de la nouvelle section
+                if (song is not null)
+                    TriggerEventsAtPosition(song, new TimelinePosition(sectionToRaise.Value, 1, 1, 0));
             }
 
             if (posToRaise is not null)

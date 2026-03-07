@@ -420,11 +420,12 @@
                                         <!-- Position -->
                                         <TextBlock Text="POSITION (Section / Mesure / Temps / Tick)" Style="{StaticResource SectionHeader}" />
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBox Text="{Binding SectionIndex,
-                                                            UpdateSourceTrigger=LostFocus,
-                                                            ValidatesOnNotifyDataErrors=True}"
-                                                     Style="{StaticResource EditorTextBoxStyle}"
-                                                     Width="60" Margin="0,0,6,0" />
+                                            <ComboBox ItemsSource="{Binding DataContext.Sections,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      DisplayMemberPath="Name"
+                                                      SelectedIndex="{Binding SectionIndex}"
+                                                      Style="{StaticResource EditorComboStyle}"
+                                                      MinWidth="120" Margin="0,0,6,0" />
                                             <TextBlock Text="/" Foreground="#585B70" FontSize="16"
                                                        Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBox Text="{Binding Bar,
@@ -565,11 +566,12 @@
                                         <!-- Position -->
                                         <TextBlock Text="POSITION (Section / Mesure / Temps / Tick)" Style="{StaticResource SectionHeader}" />
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBox Text="{Binding SectionIndex,
-                                                            UpdateSourceTrigger=LostFocus,
-                                                            ValidatesOnNotifyDataErrors=True}"
-                                                     Style="{StaticResource EditorTextBoxStyle}"
-                                                     Width="60" Margin="0,0,6,0" />
+                                            <ComboBox ItemsSource="{Binding DataContext.Sections,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      DisplayMemberPath="Name"
+                                                      SelectedIndex="{Binding SectionIndex}"
+                                                      Style="{StaticResource EditorComboStyle}"
+                                                      MinWidth="120" Margin="0,0,6,0" />
                                             <TextBlock Text="/" Foreground="#585B70" FontSize="16"
                                                        Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBox Text="{Binding Bar,
