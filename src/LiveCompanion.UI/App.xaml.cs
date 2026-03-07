@@ -33,7 +33,9 @@ public partial class App : Application
         log.Info(LogSource.UI, $"Live Companion started — EngineMode={engineMode}");
 
         // Charger les morceaux et playlists sauvegardés
-        LoadPersistedData(Services).GetAwaiter().GetResult();
+        // Task.Run évite le deadlock WPF : sans lui, le SynchronizationContext
+        // tente de reprendre les await sur le thread UI, qui est bloqué par GetResult().
+        Task.Run(() => LoadPersistedData(Services)).GetAwaiter().GetResult();
 
         // Démarrer la sauvegarde automatique
         var autoSave = Services.GetRequiredService<IAutoSaveService>();
@@ -50,7 +52,7 @@ public partial class App : Application
     {
         // Sauvegarde finale avant fermeture
         var autoSave = Services.GetRequiredService<IAutoSaveService>();
-        autoSave.SaveNowAsync().GetAwaiter().GetResult();
+        Task.Run(() => autoSave.SaveNowAsync()).GetAwaiter().GetResult();
         autoSave.Dispose();
 
         base.OnExit(e);
