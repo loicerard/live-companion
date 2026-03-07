@@ -37,6 +37,10 @@ public partial class App : Application
         // tente de reprendre les await sur le thread UI, qui est bloqué par GetResult().
         Task.Run(() => LoadPersistedData(Services)).GetAwaiter().GetResult();
 
+        // Restaurer la configuration audio/MIDI sauvegardée
+        var configVm = Services.GetRequiredService<ConfigViewModel>();
+        Task.Run(() => configVm.InitializeFromSavedSettingsAsync()).GetAwaiter().GetResult();
+
         // Démarrer la sauvegarde automatique
         var autoSave = Services.GetRequiredService<IAutoSaveService>();
         autoSave.Start();
