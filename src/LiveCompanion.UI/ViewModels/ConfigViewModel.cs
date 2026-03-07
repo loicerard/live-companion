@@ -113,7 +113,9 @@ public partial class ConfigViewModel : ViewModelBase
     {
         var settings = _store.GetSettings();
 
-        // Audio
+        // Audio — driver et buffer (les bus mappings sont restaurés après
+        // InitializeFromSavedSettingsAsync, une fois le driver ouvert et
+        // AvailableOutputPairs peuplé)
         if (settings.AudioConfig is { } audio)
         {
             if (AvailableDrivers.Contains(audio.DriverName))
@@ -121,13 +123,6 @@ public partial class ConfigViewModel : ViewModelBase
 
             if (AvailableBufferSizes.Contains(audio.BufferSize))
                 SelectedBufferSize = audio.BufferSize;
-
-            if (audio.BusMappings.Count > 0)
-            {
-                BusMappings.Clear();
-                foreach (var (busName, outputName) in audio.BusMappings)
-                    BusMappings.Add(new BusMapping { BusName = busName, OutputName = outputName });
-            }
         }
 
         // MIDI
@@ -152,6 +147,15 @@ public partial class ConfigViewModel : ViewModelBase
             AudioInitialized = true;
             AudioStatusMessage = $"Audio restauré — {audio.DriverName}, buffer {audio.BufferSize}";
             AvailableOutputPairs = _audioEngine.GetAvailableOutputPairs();
+
+            // Restaurer les bus mappings maintenant que le driver est ouvert
+            // et que AvailableOutputPairs est peuplé
+            if (audio.BusMappings.Count > 0)
+            {
+                BusMappings.Clear();
+                foreach (var (busName, outputName) in audio.BusMappings)
+                    BusMappings.Add(new BusMapping { BusName = busName, OutputName = outputName });
+            }
         }
 
         if (settings.MidiConfig is { SelectedPorts.Count: > 0 } midi)
