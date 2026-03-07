@@ -27,14 +27,17 @@ public sealed class AsioOutputProvider : IWaveProvider
     /// <summary>Volumes master par bus (0.0–1.0), modifiables en temps réel depuis le thread UI.</summary>
     private readonly ConcurrentDictionary<string, float> _busVolumes = new();
 
-    /// <summary>Niveaux peak par bus, mis à jour à chaque callback ASIO.</summary>
-    private Dictionary<string, (float Left, float Right)> _busLevels = new();
+    /// <summary>Double-buffer de niveaux peak : [0] et [1] alternent entre écriture et lecture.</summary>
+    private readonly Dictionary<string, (float Left, float Right)>[] _busLevelsBuffers = new Dictionary<string, (float Left, float Right)>[2];
+
+    /// <summary>Index du buffer actuellement exposé en lecture (0 ou 1).</summary>
+    private volatile int _busLevelsReadIndex;
 
     /// <summary>
     /// Retourne les niveaux peak actuels par bus (0.0 à 1.0).
     /// Thread-safe : la référence du dictionnaire est remplacée atomiquement.
     /// </summary>
-    public IReadOnlyDictionary<string, (float Left, float Right)> BusLevels => _busLevels;
+    public IReadOnlyDictionary<string, (float Left, float Right)> BusLevels => _busLevelsBuffers[_busLevelsReadIndex];
 
     public WaveFormat WaveFormat { get; }
 
@@ -62,10 +65,14 @@ public sealed class AsioOutputProvider : IWaveProvider
 
         // Pré-allouer les buffers de mixage par bus et initialiser les volumes à 1.0
         _busBuffers = new Dictionary<string, (float[] Left, float[] Right)>();
+        _busLevelsBuffers[0] = new Dictionary<string, (float Left, float Right)>(busChannelMap.Count);
+        _busLevelsBuffers[1] = new Dictionary<string, (float Left, float Right)>(busChannelMap.Count);
         foreach (var busName in busChannelMap.Keys)
         {
             _busBuffers[busName] = (new float[bufferSize], new float[bufferSize]);
             _busVolumes[busName] = 1.0f;
+            _busLevelsBuffers[0][busName] = (0f, 0f);
+            _busLevelsBuffers[1][busName] = (0f, 0f);
         }
 
         // Pré-allouer les buffers par canal de sortie
@@ -102,8 +109,9 @@ public sealed class AsioOutputProvider : IWaveProvider
             }
         }
 
-        // 1b. Mesurer les niveaux peak par bus
-        var levels = new Dictionary<string, (float Left, float Right)>(_busBuffers.Count);
+        // 1b. Mesurer les niveaux peak par bus (double-buffer, zéro allocation)
+        int writeIndex = 1 - _busLevelsReadIndex;
+        var writeBuffer = _busLevelsBuffers[writeIndex];
         foreach (var (busName, (left, right)) in _busBuffers)
         {
             float peakL = 0f, peakR = 0f;
@@ -115,9 +123,10 @@ public sealed class AsioOutputProvider : IWaveProvider
                 if (absR > peakR) peakR = absR;
             }
             // Clamp à 1.0
-            levels[busName] = (MathF.Min(peakL, 1f), MathF.Min(peakR, 1f));
+            writeBuffer[busName] = (MathF.Min(peakL, 1f), MathF.Min(peakR, 1f));
         }
-        _busLevels = levels;
+        // Swap atomique : le thread UI lira désormais le buffer fraîchement écrit
+        _busLevelsReadIndex = writeIndex;
 
         // 2. Effacer les channel buffers
         for (int ch = 0; ch < _outputChannelCount; ch++)

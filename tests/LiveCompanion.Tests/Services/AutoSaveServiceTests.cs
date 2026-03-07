@@ -197,4 +197,31 @@ public class AutoSaveServiceTests : IDisposable
         _autoSave.Dispose();
         _autoSave.IsRunning.Should().BeFalse();
     }
+
+    // ------------------------------------------------------------------ //
+    // Pruning
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task SaveNow_DeletedSong_ShouldNotAccumulateStaleEntries()
+    {
+        var song = _store.CreateNew("ToBeDeleted");
+
+        // First save — registers song in _lastSavedAt
+        await _autoSave.SaveNowAsync();
+
+        // Delete the song from the store
+        _store.Delete(song.Id);
+
+        // Second save — should prune orphan entry and not fail
+        await _autoSave.SaveNowAsync();
+
+        // Re-create a song with the same ID pattern — only the new one should be tracked
+        var newSong = _store.CreateNew("Replacement");
+        newSong.LastModified = DateTime.UtcNow.AddSeconds(1);
+        await _autoSave.SaveNowAsync();
+
+        var expectedPath = Path.Combine(_tempFolder, $"{newSong.Id}.json");
+        _store.StoredPaths.Should().Contain(expectedPath);
+    }
 }
