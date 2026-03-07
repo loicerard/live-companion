@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using NAudio.Wave;
 
@@ -22,6 +23,9 @@ public sealed class AsioOutputProvider : IWaveProvider
 
     /// <summary>Nombre d'échantillons par buffer (basé sur bufferSize).</summary>
     private readonly int _maxSampleCount;
+
+    /// <summary>Volumes master par bus (0.0–1.0), modifiables en temps réel depuis le thread UI.</summary>
+    private readonly ConcurrentDictionary<string, float> _busVolumes = new();
 
     /// <summary>Niveaux peak par bus, mis à jour à chaque callback ASIO.</summary>
     private Dictionary<string, (float Left, float Right)> _busLevels = new();
@@ -56,11 +60,12 @@ public sealed class AsioOutputProvider : IWaveProvider
 
         WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, outputChannelCount);
 
-        // Pré-allouer les buffers de mixage par bus
+        // Pré-allouer les buffers de mixage par bus et initialiser les volumes à 1.0
         _busBuffers = new Dictionary<string, (float[] Left, float[] Right)>();
         foreach (var busName in busChannelMap.Keys)
         {
             _busBuffers[busName] = (new float[bufferSize], new float[bufferSize]);
+            _busVolumes[busName] = 1.0f;
         }
 
         // Pré-allouer les buffers par canal de sortie
@@ -84,6 +89,18 @@ public sealed class AsioOutputProvider : IWaveProvider
 
         // 1. Mixer les voices dans les bus buffers
         _voicePool.FillBuffers(_busBuffers, sampleCount);
+
+        // 1a. Appliquer les volumes master par bus (post-fader)
+        foreach (var (busName, (left, right)) in _busBuffers)
+        {
+            float vol = _busVolumes.GetValueOrDefault(busName, 1.0f);
+            if (vol >= 1.0f) continue;
+            for (int i = 0; i < sampleCount; i++)
+            {
+                left[i] *= vol;
+                right[i] *= vol;
+            }
+        }
 
         // 1b. Mesurer les niveaux peak par bus
         var levels = new Dictionary<string, (float Left, float Right)>(_busBuffers.Count);
@@ -139,4 +156,15 @@ public sealed class AsioOutputProvider : IWaveProvider
 
         return sampleCount * _outputChannelCount * bytesPerSample;
     }
+
+    // ------------------------------------------------------------------ //
+    // Bus volume control
+    // ------------------------------------------------------------------ //
+
+    public IReadOnlyList<string> GetBusNames() => _busVolumes.Keys.ToList();
+
+    public float GetBusVolume(string busName) => _busVolumes.GetValueOrDefault(busName, 1.0f);
+
+    public void SetBusVolume(string busName, float volume)
+        => _busVolumes[busName] = Math.Clamp(volume, 0f, 1f);
 }

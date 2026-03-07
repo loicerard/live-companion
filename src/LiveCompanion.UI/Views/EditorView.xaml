@@ -128,21 +128,27 @@
                     <DockPanel Margin="0,8,0,0">
                         <!-- Section action bar -->
                         <Border DockPanel.Dock="Top" Style="{StaticResource CardStyle}" Padding="20,8">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="+ Ajouter"
-                                        Command="{Binding AddSectionCommand}"
-                                        Style="{StaticResource ActionButtonStyle}" />
-                                <Button Content="Supprimer"
-                                        Command="{Binding RemoveSectionCommand}"
-                                        Style="{StaticResource ActionButtonStyle}"
-                                        Foreground="#F38BA8" />
-                                <Button Content="&#x25B2; Monter"
-                                        Command="{Binding MoveSectionUpCommand}"
-                                        Style="{StaticResource ActionButtonStyle}" />
-                                <Button Content="&#x25BC; Descendre"
-                                        Command="{Binding MoveSectionDownCommand}"
-                                        Style="{StaticResource ActionButtonStyle}" />
-                            </StackPanel>
+                            <DockPanel>
+                                <Button Content="Import MIDI"
+                                        Command="{Binding ImportFromMidiCommand}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        DockPanel.Dock="Left" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="+ Ajouter"
+                                            Command="{Binding AddSectionCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                    <Button Content="Supprimer"
+                                            Command="{Binding RemoveSectionCommand}"
+                                            Style="{StaticResource ActionButtonStyle}"
+                                            Foreground="#F38BA8" />
+                                    <Button Content="&#x25B2; Monter"
+                                            Command="{Binding MoveSectionUpCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                    <Button Content="&#x25BC; Descendre"
+                                            Command="{Binding MoveSectionDownCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                </StackPanel>
+                            </DockPanel>
                         </Border>
 
                         <!-- Section list + Detail -->
@@ -414,11 +420,12 @@
                                         <!-- Position -->
                                         <TextBlock Text="POSITION (Section / Mesure / Temps / Tick)" Style="{StaticResource SectionHeader}" />
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBox Text="{Binding SectionIndex,
-                                                            UpdateSourceTrigger=LostFocus,
-                                                            ValidatesOnNotifyDataErrors=True}"
-                                                     Style="{StaticResource EditorTextBoxStyle}"
-                                                     Width="60" Margin="0,0,6,0" />
+                                            <ComboBox ItemsSource="{Binding DataContext.Sections,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      DisplayMemberPath="Name"
+                                                      SelectedIndex="{Binding SectionIndex}"
+                                                      Style="{StaticResource EditorComboStyle}"
+                                                      MinWidth="120" Margin="0,0,6,0" />
                                             <TextBlock Text="/" Foreground="#585B70" FontSize="16"
                                                        Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBox Text="{Binding Bar,
@@ -559,11 +566,12 @@
                                         <!-- Position -->
                                         <TextBlock Text="POSITION (Section / Mesure / Temps / Tick)" Style="{StaticResource SectionHeader}" />
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBox Text="{Binding SectionIndex,
-                                                            UpdateSourceTrigger=LostFocus,
-                                                            ValidatesOnNotifyDataErrors=True}"
-                                                     Style="{StaticResource EditorTextBoxStyle}"
-                                                     Width="60" Margin="0,0,6,0" />
+                                            <ComboBox ItemsSource="{Binding DataContext.Sections,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                      DisplayMemberPath="Name"
+                                                      SelectedIndex="{Binding SectionIndex}"
+                                                      Style="{StaticResource EditorComboStyle}"
+                                                      MinWidth="120" Margin="0,0,6,0" />
                                             <TextBlock Text="/" Foreground="#585B70" FontSize="16"
                                                        Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBox Text="{Binding Bar,

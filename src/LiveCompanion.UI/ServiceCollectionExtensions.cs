@@ -26,6 +26,9 @@ public static class ServiceCollectionExtensions
         // Live Mode Guard — empêche les actions destructives en mode Live
         services.AddSingleton<ILiveModeGuard, LiveModeGuard>();
 
+        // Import MIDI — lecture de fichiers .mid pour extraire la structure
+        services.AddSingleton<IMidiImportService, MidiImportServiceReal>();
+
         // AutoSave — sauvegarde périodique des morceaux modifiés
         services.AddSingleton<IAutoSaveService>(sp =>
         {
@@ -91,6 +94,8 @@ public static class ServiceCollectionExtensions
             => sp.GetRequiredService<AudioEngineMock>());
         services.AddSingleton<IAudioMeterProvider>(sp
             => sp.GetRequiredService<AudioEngineMock>());
+        services.AddSingleton<IAudioMixerProvider>(sp
+            => sp.GetRequiredService<AudioEngineMock>());
 
         services.AddSingleton<IMidiEngine, MidiEngineMock>();
         services.AddSingleton<ITransportController, TransportControllerMock>();
@@ -130,6 +135,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAudioEngine>(sp
             => sp.GetRequiredService<AudioEngineReal>());
         services.AddSingleton<IAudioMeterProvider>(sp
+            => sp.GetRequiredService<AudioEngineReal>());
+        services.AddSingleton<IAudioMixerProvider>(sp
             => sp.GetRequiredService<AudioEngineReal>());
 
         services.AddSingleton<MidiEngineReal>();

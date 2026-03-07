@@ -9,7 +9,7 @@ namespace LiveCompanion.EngineReal;
 /// Manages a <see cref="VoicePool"/> for multi-voice PCM playback with volume and fade ramping.
 /// Audio clips are decoded and cached by <see cref="AudioCache"/>, then played through the voice pool.
 /// </summary>
-public sealed class AudioEngineReal : IAudioEngine, IAudioMeterProvider
+public sealed class AudioEngineReal : IAudioEngine, IAudioMeterProvider, IAudioMixerProvider
 {
     private readonly ILogService _log;
     private readonly IAsioInterop _asio;
@@ -38,6 +38,18 @@ public sealed class AudioEngineReal : IAudioEngine, IAudioMeterProvider
     public IReadOnlyDictionary<string, (float Left, float Right)> GetBusLevels()
         => _outputProvider?.BusLevels
            ?? ReadOnlyDictionary<string, (float Left, float Right)>.Empty;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<string> GetBusNames()
+        => _outputProvider?.GetBusNames() ?? [];
+
+    /// <inheritdoc/>
+    public float GetBusVolume(string busName)
+        => _outputProvider?.GetBusVolume(busName) ?? 1.0f;
+
+    /// <inheritdoc/>
+    public void SetBusVolume(string busName, float volume)
+        => _outputProvider?.SetBusVolume(busName, Math.Clamp(volume, 0f, 1f));
 
     /// <summary>
     /// The voice pool used for multi-voice PCM playback.

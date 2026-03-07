@@ -8,7 +8,7 @@ namespace LiveCompanion.EngineMock;
 /// Gère jusqu'à <see cref="MaxVoices"/> lectures simultanées fictives.
 /// Thread-safe : le compteur de voix est modifié exclusivement via <see cref="Interlocked"/>.
 /// </summary>
-public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider
+public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider, IAudioMixerProvider
 {
     /// <summary>Nombre maximum de voix simultanées simulées.</summary>
     public const int MaxVoices = 16;
@@ -23,6 +23,7 @@ public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider
 
     private readonly ILogService _log;
     private readonly Random _random = new();
+    private readonly Dictionary<string, float> _busVolumes = new();
     private volatile bool _initialized;
     private int _activeVoices; // modified via Interlocked
     private AudioConfig? _config;
@@ -141,12 +142,31 @@ public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider
                 // Simuler un niveau proportionnel aux voix actives avec un léger jitter
                 float baseLevel = MathF.Min(0.2f + voices * 0.05f, 0.8f);
                 float jitter = (float)(_random.NextDouble() * 0.1);
-                levels[bus] = (baseLevel + jitter, baseLevel + jitter);
+                // Appliquer le volume master du bus (post-fader)
+                float vol = _busVolumes.GetValueOrDefault(bus, 1.0f);
+                float level = (baseLevel + jitter) * vol;
+                levels[bus] = (level, level);
             }
         }
 
         return levels;
     }
+
+    // ------------------------------------------------------------------ //
+    // IAudioMixerProvider
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public IReadOnlyList<string> GetBusNames()
+        => (_config?.BusMappings.Keys ?? (IEnumerable<string>)DefaultBusNames).ToList();
+
+    /// <inheritdoc/>
+    public float GetBusVolume(string busName)
+        => _busVolumes.GetValueOrDefault(busName, 1.0f);
+
+    /// <inheritdoc/>
+    public void SetBusVolume(string busName, float volume)
+        => _busVolumes[busName] = Math.Clamp(volume, 0f, 1f);
 
     // ------------------------------------------------------------------ //
     // Helpers
