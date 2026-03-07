@@ -118,6 +118,15 @@ public sealed class AutoSaveService : IAutoSaveService
                 _log.Error(LogSource.Core, $"[AutoSave] Erreur sauvegarde playlists — {ex.Message}");
             }
 
+            // Nettoyer les entrées orphelines (morceaux supprimés)
+            lock (_lock)
+            {
+                var currentIds = new HashSet<Guid>(songs.Select(s => s.Id));
+                var orphanIds = _lastSavedAt.Keys.Where(id => !currentIds.Contains(id)).ToList();
+                foreach (var id in orphanIds)
+                    _lastSavedAt.Remove(id);
+            }
+
             if (saved > 0)
                 _log.Info(LogSource.Core, $"[AutoSave] {saved} morceau(x) sauvegardé(s)");
             else

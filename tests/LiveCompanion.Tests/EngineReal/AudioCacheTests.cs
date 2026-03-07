@@ -23,7 +23,8 @@ public class AudioCacheTests : IDisposable
         catch { /* best effort cleanup */ }
     }
 
-    private AudioCache CreateCache() => new(_log);
+    private AudioCache CreateCache(long maxMemoryBytes = AudioCache.DefaultMaxMemoryBytes)
+        => new(_log, maxMemoryBytes);
 
     // ------------------------------------------------------------------ //
     // Test WAV generation helper
@@ -235,5 +236,67 @@ public class AudioCacheTests : IDisposable
         cache.Clear();
 
         cache.TotalMemoryBytes.Should().Be(0);
+    }
+
+    // ------------------------------------------------------------------ //
+    // LRU eviction
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public void MaxMemoryBytes_ShouldBeConfigurable()
+    {
+        var cache = CreateCache(maxMemoryBytes: 1024 * 1024);
+        cache.MaxMemoryBytes.Should().Be(1024 * 1024);
+    }
+
+    [Fact]
+    public void MaxMemoryBytes_Default_ShouldBe256MB()
+    {
+        var cache = CreateCache();
+        cache.MaxMemoryBytes.Should().Be(AudioCache.DefaultMaxMemoryBytes);
+    }
+
+    [Fact]
+    public async Task Evict_WhenOverMemoryLimit_ShouldRemoveOldestEntries()
+    {
+        // Create a cache with a very small limit so our test WAVs will trigger eviction.
+        // A 100ms mono WAV at 48kHz ≈ 4800 samples × 4 bytes = ~19 KB
+        var cache = CreateCache(maxMemoryBytes: 25_000);
+
+        var wav1 = CreateTestWav(fileName: "clip1.wav", durationMs: 100);
+        var wav2 = CreateTestWav(fileName: "clip2.wav", durationMs: 100);
+
+        // Load sequentially to control LRU order
+        await cache.PreloadAsync([wav1]);
+        await cache.PreloadAsync([wav2]);
+
+        // wav1 was loaded first (oldest), so it should be evicted
+        cache.Get(wav1).Should().BeNull("oldest entry should be evicted when over limit");
+        cache.Get(wav2).Should().NotBeNull("most recent entry should be kept");
+        cache.TotalMemoryBytes.Should().BeLessOrEqualTo(25_000);
+    }
+
+    [Fact]
+    public async Task Get_ShouldUpdateLruOrder()
+    {
+        // Limit that fits ~2 clips but not 3
+        var cache = CreateCache(maxMemoryBytes: 45_000);
+
+        var wav1 = CreateTestWav(fileName: "a.wav", durationMs: 100);
+        var wav2 = CreateTestWav(fileName: "b.wav", durationMs: 100);
+        var wav3 = CreateTestWav(fileName: "c.wav", durationMs: 100);
+
+        await cache.PreloadAsync([wav1]);
+        await cache.PreloadAsync([wav2]);
+
+        // Access wav1 to make it most-recently-used
+        cache.Get(wav1).Should().NotBeNull();
+
+        // Load wav3 — should evict wav2 (now the oldest), not wav1
+        await cache.PreloadAsync([wav3]);
+
+        cache.Get(wav1).Should().NotBeNull("recently accessed entry should survive eviction");
+        cache.Get(wav2).Should().BeNull("oldest untouched entry should be evicted");
+        cache.Get(wav3).Should().NotBeNull("newly loaded entry should be present");
     }
 }
