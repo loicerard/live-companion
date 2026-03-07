@@ -37,19 +37,21 @@ public partial class App : Application
         // tente de reprendre les await sur le thread UI, qui est bloqué par GetResult().
         Task.Run(() => LoadPersistedData(Services)).GetAwaiter().GetResult();
 
-        // Restaurer la configuration audio/MIDI sauvegardée
-        var configVm = Services.GetRequiredService<ConfigViewModel>();
-        Task.Run(() => configVm.InitializeFromSavedSettingsAsync()).GetAwaiter().GetResult();
-
         // Démarrer la sauvegarde automatique
         var autoSave = Services.GetRequiredService<IAutoSaveService>();
         autoSave.Start();
 
+        var mainVm = Services.GetRequiredService<MainViewModel>();
         var mainWindow = new MainWindow
         {
-            DataContext = Services.GetRequiredService<MainViewModel>()
+            DataContext = mainVm
         };
         mainWindow.Show();
+
+        // Initialiser les moteurs audio/MIDI de manière asynchrone sur le thread UI (STA).
+        // ASIO requiert un thread STA — Task.Run exécute sur MTA → COMException.
+        // On lance l'init après Show() pour ne pas bloquer le démarrage.
+        _ = InitializeEnginesAsync(Services, log, mainVm);
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -60,6 +62,29 @@ public partial class App : Application
         autoSave.Dispose();
 
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// Initialise les moteurs audio/MIDI avec la config sauvegardée.
+    /// Exécuté sur le thread UI (STA requis par ASIO) de manière asynchrone.
+    /// </summary>
+    private static async Task InitializeEnginesAsync(
+        IServiceProvider sp, ILogService log, MainViewModel mainVm)
+    {
+        mainVm.IsInitializing = true;
+        try
+        {
+            var configVm = sp.GetRequiredService<ConfigViewModel>();
+            await configVm.InitializeFromSavedSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            log.Warn(LogSource.UI, $"[Startup] Initialisation moteurs échouée — {ex.Message}");
+        }
+        finally
+        {
+            mainVm.IsInitializing = false;
+        }
     }
 
     /// <summary>
