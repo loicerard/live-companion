@@ -15,6 +15,7 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private readonly IProjectStore _projectStore;
     private readonly ILiveModeGuard _liveModeGuard;
     private readonly IAudioMeterProvider _meterProvider;
+    private readonly IAudioMixerProvider _mixerProvider;
     private readonly DispatcherTimer _meterTimer;
 
     private Song? _song;
@@ -75,13 +76,10 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private bool _canTransition = true;
 
     // ------------------------------------------------------------------ //
-    // VU-mètres
+    // Mixer (VU-mètres + volumes par bus)
     // ------------------------------------------------------------------ //
 
-    [ObservableProperty] private float _mainLevelLeft;
-    [ObservableProperty] private float _mainLevelRight;
-    [ObservableProperty] private float _clickLevelLeft;
-    [ObservableProperty] private float _clickLevelRight;
+    public ObservableCollection<BusMixerChannelViewModel> MixerChannels { get; } = [];
 
     // ------------------------------------------------------------------ //
     // Mode Live sécurisé (#44)
@@ -110,13 +108,15 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         ITimelineScheduler scheduler,
         IProjectStore projectStore,
         ILiveModeGuard liveModeGuard,
-        IAudioMeterProvider meterProvider)
+        IAudioMeterProvider meterProvider,
+        IAudioMixerProvider mixerProvider)
     {
         _transport = transport;
         _scheduler = scheduler;
         _projectStore = projectStore;
         _liveModeGuard = liveModeGuard;
         _meterProvider = meterProvider;
+        _mixerProvider = mixerProvider;
 
         _transport.StateChanged += OnTransportStateChanged;
         _scheduler.PositionChanged += OnPositionChanged;
@@ -129,6 +129,10 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         _meterTimer.Tick += OnMeterTimerTick;
 
         IsLiveModeActive = _liveModeGuard.IsLive;
+
+        // Initialiser les canaux du mixer
+        foreach (var busName in _mixerProvider.GetBusNames())
+            MixerChannels.Add(new BusMixerChannelViewModel(busName, _mixerProvider));
 
         RefreshSongList();
     }
@@ -289,8 +293,8 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
             else if (state == TransportState.Stopped)
             {
                 _meterTimer.Stop();
-                MainLevelLeft = MainLevelRight = 0f;
-                ClickLevelLeft = ClickLevelRight = 0f;
+                foreach (var ch in MixerChannels)
+                    ch.UpdateLevels(0f, 0f);
             }
             // En pause, on laisse le timer tourner pour voir les niveaux retomber
         });
@@ -300,16 +304,10 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     {
         var levels = _meterProvider.GetBusLevels();
 
-        if (levels.TryGetValue("Main", out var main))
+        foreach (var channel in MixerChannels)
         {
-            MainLevelLeft = main.Left;
-            MainLevelRight = main.Right;
-        }
-
-        if (levels.TryGetValue("Click", out var click))
-        {
-            ClickLevelLeft = click.Left;
-            ClickLevelRight = click.Right;
+            if (levels.TryGetValue(channel.BusName, out var lev))
+                channel.UpdateLevels(lev.Left, lev.Right);
         }
     }
 

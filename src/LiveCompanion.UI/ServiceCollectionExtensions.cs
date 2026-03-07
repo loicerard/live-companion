@@ -94,6 +94,8 @@ public static class ServiceCollectionExtensions
             => sp.GetRequiredService<AudioEngineMock>());
         services.AddSingleton<IAudioMeterProvider>(sp
             => sp.GetRequiredService<AudioEngineMock>());
+        services.AddSingleton<IAudioMixerProvider>(sp
+            => sp.GetRequiredService<AudioEngineMock>());
 
         services.AddSingleton<IMidiEngine, MidiEngineMock>();
         services.AddSingleton<ITransportController, TransportControllerMock>();
@@ -133,6 +135,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAudioEngine>(sp
             => sp.GetRequiredService<AudioEngineReal>());
         services.AddSingleton<IAudioMeterProvider>(sp
+            => sp.GetRequiredService<AudioEngineReal>());
+        services.AddSingleton<IAudioMixerProvider>(sp
             => sp.GetRequiredService<AudioEngineReal>());
 
         services.AddSingleton<MidiEngineReal>();

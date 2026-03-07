@@ -227,94 +227,81 @@
                                   CurrentBeat="{Binding TimelineBeat}"
                                   Margin="0,6" />
 
-        <!-- VU meters -->
+        <!-- Mixer (VU meters + volume faders) -->
         <Border Grid.Row="5" Style="{StaticResource CardStyle}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!-- Bus Main -->
-                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                    <TextBlock Text="MAIN"
-                               Foreground="#7F849C"
-                               FontSize="10"
-                               FontWeight="Bold"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,8" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Height="60">
-                        <Border Width="16" Height="60" Background="#262637" CornerRadius="4" Margin="2,0">
-                            <Border CornerRadius="4" VerticalAlignment="Bottom"
-                                    Height="{Binding MainLevelLeft, Converter={StaticResource LevelToHeightConverter}}">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
-                                        <GradientStop Color="#A6E3A1" Offset="0.0" />
-                                        <GradientStop Color="#F9E2AF" Offset="0.7" />
-                                        <GradientStop Color="#F38BA8" Offset="1.0" />
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                            </Border>
-                        </Border>
-                        <Border Width="16" Height="60" Background="#262637" CornerRadius="4" Margin="2,0">
-                            <Border CornerRadius="4" VerticalAlignment="Bottom"
-                                    Height="{Binding MainLevelRight, Converter={StaticResource LevelToHeightConverter}}">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
-                                        <GradientStop Color="#A6E3A1" Offset="0.0" />
-                                        <GradientStop Color="#F9E2AF" Offset="0.7" />
-                                        <GradientStop Color="#F38BA8" Offset="1.0" />
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                            </Border>
-                        </Border>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
-                        <TextBlock Text="L" Foreground="#45475A" FontSize="10" Margin="5,0" />
-                        <TextBlock Text="R" Foreground="#45475A" FontSize="10" Margin="5,0" />
-                    </StackPanel>
-                </StackPanel>
-
-                <!-- Bus Click -->
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                    <TextBlock Text="CLICK"
-                               Foreground="#7F849C"
-                               FontSize="10"
-                               FontWeight="Bold"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,8" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Height="60">
-                        <Border Width="16" Height="60" Background="#262637" CornerRadius="4" Margin="2,0">
-                            <Border CornerRadius="4" VerticalAlignment="Bottom"
-                                    Height="{Binding ClickLevelLeft, Converter={StaticResource LevelToHeightConverter}}">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
-                                        <GradientStop Color="#A6E3A1" Offset="0.0" />
-                                        <GradientStop Color="#F9E2AF" Offset="0.7" />
-                                        <GradientStop Color="#F38BA8" Offset="1.0" />
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                            </Border>
-                        </Border>
-                        <Border Width="16" Height="60" Background="#262637" CornerRadius="4" Margin="2,0">
-                            <Border CornerRadius="4" VerticalAlignment="Bottom"
-                                    Height="{Binding ClickLevelRight, Converter={StaticResource LevelToHeightConverter}}">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
-                                        <GradientStop Color="#A6E3A1" Offset="0.0" />
-                                        <GradientStop Color="#F9E2AF" Offset="0.7" />
-                                        <GradientStop Color="#F38BA8" Offset="1.0" />
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                            </Border>
-                        </Border>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
-                        <TextBlock Text="L" Foreground="#45475A" FontSize="10" Margin="5,0" />
-                        <TextBlock Text="R" Foreground="#45475A" FontSize="10" Margin="5,0" />
-                    </StackPanel>
-                </StackPanel>
-            </Grid>
+            <StackPanel>
+                <TextBlock Text="MIXER"
+                           Foreground="#7F849C"
+                           FontSize="10"
+                           FontWeight="Bold"
+                           Margin="0,0,0,8" />
+                <ItemsControl ItemsSource="{Binding MixerChannels}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel HorizontalAlignment="Center" Margin="12,0">
+                                <!-- Bus name -->
+                                <TextBlock Text="{Binding BusName}"
+                                           Foreground="#7F849C"
+                                           FontSize="10"
+                                           FontWeight="Bold"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,0,0,8"
+                                           TextBlock.Typography.Capitals="AllSmallCaps" />
+                                <!-- VU meter bars (L/R) -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Height="60">
+                                    <Border Width="16" Height="60" Background="#262637" CornerRadius="4" Margin="2,0">
+                                        <Border CornerRadius="4" VerticalAlignment="Bottom"
+                                                Height="{Binding LevelLeft, Converter={StaticResource LevelToHeightConverter}}">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                    <GradientStop Color="#A6E3A1" Offset="0.0" />
+                                                    <GradientStop Color="#F9E2AF" Offset="0.7" />
+                                                    <GradientStop Color="#F38BA8" Offset="1.0" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Border>
+                                    <Border Width="16" Height="60" Background="#262637" CornerRadius="4" Margin="2,0">
+                                        <Border CornerRadius="4" VerticalAlignment="Bottom"
+                                                Height="{Binding LevelRight, Converter={StaticResource LevelToHeightConverter}}">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                    <GradientStop Color="#A6E3A1" Offset="0.0" />
+                                                    <GradientStop Color="#F9E2AF" Offset="0.7" />
+                                                    <GradientStop Color="#F38BA8" Offset="1.0" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
+                                    <TextBlock Text="L" Foreground="#45475A" FontSize="10" Margin="5,0" />
+                                    <TextBlock Text="R" Foreground="#45475A" FontSize="10" Margin="5,0" />
+                                </StackPanel>
+                                <!-- Volume slider -->
+                                <Slider Minimum="0" Maximum="1"
+                                        Value="{Binding Volume, Mode=TwoWay}"
+                                        Orientation="Horizontal"
+                                        Width="80"
+                                        Margin="0,8,0,0"
+                                        TickFrequency="0.01"
+                                        IsSnapToTickEnabled="False" />
+                                <!-- Volume percentage -->
+                                <TextBlock Text="{Binding Volume, StringFormat={}{0:P0}}"
+                                           Foreground="#585B70"
+                                           FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </Border>
 
         <!-- Transport controls -->
