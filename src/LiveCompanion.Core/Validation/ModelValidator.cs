@@ -50,9 +50,23 @@ public static class ModelValidator
                 result.AddError($"{prefix}.FilePath",
                     $"Le chemin audio du clip '{clip.Name}' ne peut pas être vide.");
 
-            if (clip.Volume < 0.0 || clip.Volume > 1.0)
-                result.AddError($"{prefix}.Volume",
-                    $"Le volume du clip '{clip.Name}' doit être entre 0.0 et 1.0 (actuel : {clip.Volume}).");
+            if (clip.Sends.Count == 0)
+                result.AddError($"{prefix}.Sends",
+                    $"Le clip '{clip.Name}' doit avoir au moins un send.");
+
+            for (int j = 0; j < clip.Sends.Count; j++)
+            {
+                var send = clip.Sends[j];
+                var sendPrefix = $"{prefix}.Sends[{j}]";
+
+                if (string.IsNullOrWhiteSpace(send.BusName))
+                    result.AddError($"{sendPrefix}.BusName",
+                        $"Le bus du send {j} du clip '{clip.Name}' ne peut pas être vide.");
+
+                if (send.Volume < 0.0 || send.Volume > 1.0)
+                    result.AddError($"{sendPrefix}.Volume",
+                        $"Le volume du send {j} du clip '{clip.Name}' doit être entre 0.0 et 1.0 (actuel : {send.Volume}).");
+            }
 
             if (clip.FadeInSeconds < 0)
                 result.AddError($"{prefix}.FadeInSeconds",

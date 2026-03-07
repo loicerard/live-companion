@@ -82,6 +82,10 @@ public sealed class ProjectStoreReal : IProjectStore
             return new LoadResult<Song>(null, validation);
         }
 
+        // Migration des anciens champs BusName/Volume vers Sends
+        foreach (var clip in song.AudioClips)
+            clip.MigrateLegacyFields();
+
         // Validation du modèle
         var modelValidation = ModelValidator.ValidateSong(song);
         if (!modelValidation.IsValid)
@@ -250,6 +254,9 @@ public sealed class ProjectStoreReal : IProjectStore
 
         foreach (var song in songs)
         {
+            foreach (var clip in song.AudioClips)
+                clip.MigrateLegacyFields();
+
             var sv = ModelValidator.ValidateSong(song);
             validation.Merge(sv);
         }

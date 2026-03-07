@@ -10,6 +10,7 @@ public partial class ConfigViewModel : ViewModelBase
 {
     private readonly IAudioEngine _audioEngine;
     private readonly IMidiEngine _midiEngine;
+    private readonly IProjectStore _store;
 
     // ------------------------------------------------------------------ //
     // Audio — Propriétés observables
@@ -64,10 +65,11 @@ public partial class ConfigViewModel : ViewModelBase
     // Constructeur
     // ------------------------------------------------------------------ //
 
-    public ConfigViewModel(IAudioEngine audioEngine, IMidiEngine midiEngine)
+    public ConfigViewModel(IAudioEngine audioEngine, IMidiEngine midiEngine, IProjectStore store)
     {
         _audioEngine = audioEngine;
         _midiEngine = midiEngine;
+        _store = store;
 
         // Charger les listes depuis les moteurs
         AvailableDrivers = _audioEngine.GetAvailableDrivers();
@@ -95,6 +97,72 @@ public partial class ConfigViewModel : ViewModelBase
             item.PropertyChanged += (_, _) => OnPropertyChanged(nameof(SelectedMidiPortCount));
             AvailableMidiPorts.Add(item);
         }
+
+        // Restaurer la configuration sauvegardée
+        RestoreSavedSettings();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Restauration de la configuration sauvegardée
+    // ------------------------------------------------------------------ //
+
+    /// <summary>
+    /// Restaure les valeurs UI depuis les settings persistés (sans initialiser les moteurs).
+    /// </summary>
+    private void RestoreSavedSettings()
+    {
+        var settings = _store.GetSettings();
+
+        // Audio — driver et buffer (les bus mappings sont restaurés après
+        // InitializeFromSavedSettingsAsync, une fois le driver ouvert et
+        // AvailableOutputPairs peuplé)
+        if (settings.AudioConfig is { } audio)
+        {
+            if (AvailableDrivers.Contains(audio.DriverName))
+                SelectedDriver = audio.DriverName;
+
+            if (AvailableBufferSizes.Contains(audio.BufferSize))
+                SelectedBufferSize = audio.BufferSize;
+        }
+
+        // MIDI
+        if (settings.MidiConfig is { } midi)
+        {
+            foreach (var port in AvailableMidiPorts)
+                port.IsSelected = midi.SelectedPorts.Contains(port.PortName);
+        }
+    }
+
+    /// <summary>
+    /// Initialise les moteurs audio et MIDI avec la configuration sauvegardée.
+    /// Appelé au démarrage de l'application.
+    /// </summary>
+    public async Task InitializeFromSavedSettingsAsync()
+    {
+        var settings = _store.GetSettings();
+
+        if (settings.AudioConfig is { } audio && !string.IsNullOrEmpty(audio.DriverName))
+        {
+            await _audioEngine.InitializeAsync(audio);
+            AudioInitialized = true;
+            AudioStatusMessage = $"Audio restauré — {audio.DriverName}, buffer {audio.BufferSize}";
+            AvailableOutputPairs = _audioEngine.GetAvailableOutputPairs();
+
+            // Restaurer les bus mappings maintenant que le driver est ouvert
+            // et que AvailableOutputPairs est peuplé
+            if (audio.BusMappings.Count > 0)
+            {
+                BusMappings.Clear();
+                foreach (var (busName, outputName) in audio.BusMappings)
+                    BusMappings.Add(new BusMapping { BusName = busName, OutputName = outputName });
+            }
+        }
+
+        if (settings.MidiConfig is { SelectedPorts.Count: > 0 } midi)
+        {
+            await _midiEngine.InitializeAsync(midi);
+            MidiStatusMessage = $"MIDI restauré — {midi.SelectedPorts.Count} port(s)";
+        }
     }
 
     // ------------------------------------------------------------------ //
@@ -121,6 +189,11 @@ public partial class ConfigViewModel : ViewModelBase
 
         // Rafraîchir les sorties disponibles maintenant que le driver est ouvert
         AvailableOutputPairs = _audioEngine.GetAvailableOutputPairs();
+
+        // Persister la configuration audio
+        var settings = _store.GetSettings();
+        settings.AudioConfig = config;
+        _store.SaveSettings(settings);
     }
 
     // ------------------------------------------------------------------ //
@@ -150,6 +223,11 @@ public partial class ConfigViewModel : ViewModelBase
         var config = new MidiConfig { SelectedPorts = selectedPorts };
         await _midiEngine.InitializeAsync(config);
         MidiStatusMessage = $"MIDI initialisé — {selectedPorts.Count} port(s)";
+
+        // Persister la configuration MIDI
+        var settings = _store.GetSettings();
+        settings.MidiConfig = config;
+        _store.SaveSettings(settings);
     }
 
     [RelayCommand]

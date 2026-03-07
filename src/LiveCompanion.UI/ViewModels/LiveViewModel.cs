@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.Core.Interfaces;
@@ -13,6 +14,8 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private readonly ITimelineScheduler _scheduler;
     private readonly IProjectStore _projectStore;
     private readonly ILiveModeGuard _liveModeGuard;
+    private readonly IAudioMeterProvider _meterProvider;
+    private readonly DispatcherTimer _meterTimer;
 
     private Song? _song;
     private bool _disposed;
@@ -72,6 +75,15 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private bool _canTransition = true;
 
     // ------------------------------------------------------------------ //
+    // VU-mètres
+    // ------------------------------------------------------------------ //
+
+    [ObservableProperty] private float _mainLevelLeft;
+    [ObservableProperty] private float _mainLevelRight;
+    [ObservableProperty] private float _clickLevelLeft;
+    [ObservableProperty] private float _clickLevelRight;
+
+    // ------------------------------------------------------------------ //
     // Mode Live sécurisé (#44)
     // ------------------------------------------------------------------ //
 
@@ -97,16 +109,24 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         ITransportController transport,
         ITimelineScheduler scheduler,
         IProjectStore projectStore,
-        ILiveModeGuard liveModeGuard)
+        ILiveModeGuard liveModeGuard,
+        IAudioMeterProvider meterProvider)
     {
         _transport = transport;
         _scheduler = scheduler;
         _projectStore = projectStore;
         _liveModeGuard = liveModeGuard;
+        _meterProvider = meterProvider;
 
         _transport.StateChanged += OnTransportStateChanged;
         _scheduler.PositionChanged += OnPositionChanged;
         _scheduler.SectionChanged += OnSectionChanged;
+
+        _meterTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(33) // ~30 fps
+        };
+        _meterTimer.Tick += OnMeterTimerTick;
 
         IsLiveModeActive = _liveModeGuard.IsLive;
 
@@ -260,7 +280,37 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         {
             CurrentState = state;
             CanTransition = _scheduler.CanTransitionNow;
+
+            // Démarrer/arrêter le timer de metering selon l'état transport
+            if (state == TransportState.Playing)
+            {
+                _meterTimer.Start();
+            }
+            else if (state == TransportState.Stopped)
+            {
+                _meterTimer.Stop();
+                MainLevelLeft = MainLevelRight = 0f;
+                ClickLevelLeft = ClickLevelRight = 0f;
+            }
+            // En pause, on laisse le timer tourner pour voir les niveaux retomber
         });
+    }
+
+    private void OnMeterTimerTick(object? sender, EventArgs e)
+    {
+        var levels = _meterProvider.GetBusLevels();
+
+        if (levels.TryGetValue("Main", out var main))
+        {
+            MainLevelLeft = main.Left;
+            MainLevelRight = main.Right;
+        }
+
+        if (levels.TryGetValue("Click", out var click))
+        {
+            ClickLevelLeft = click.Left;
+            ClickLevelRight = click.Right;
+        }
     }
 
     private void OnPositionChanged(object? sender, TimelinePosition position)
@@ -293,6 +343,8 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         if (_disposed) return;
         _disposed = true;
 
+        _meterTimer.Stop();
+        _meterTimer.Tick -= OnMeterTimerTick;
         _transport.StateChanged -= OnTransportStateChanged;
         _scheduler.PositionChanged -= OnPositionChanged;
         _scheduler.SectionChanged -= OnSectionChanged;

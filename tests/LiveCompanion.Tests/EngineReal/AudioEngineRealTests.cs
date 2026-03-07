@@ -391,7 +391,7 @@ public class AudioEngineRealTests
         {
             await cache.PreloadAsync([tempFile]);
 
-            var clip = new AudioClip { Name = "Test", FilePath = tempFile, BusName = "Main" };
+            var clip = new AudioClip { Name = "Test", FilePath = tempFile, Sends = [new BusSend { BusName = "Main" }] };
             await engine.PlayClipAsync(clip);
 
             engine.ActiveVoices.Should().Be(1);
@@ -415,7 +415,7 @@ public class AudioEngineRealTests
 
             for (int i = 0; i < 3; i++)
             {
-                var clip = new AudioClip { Name = $"Clip {i}", FilePath = tempFile, BusName = "Main" };
+                var clip = new AudioClip { Name = $"Clip {i}", FilePath = tempFile, Sends = [new BusSend { BusName = "Main" }] };
                 await engine.PlayClipAsync(clip);
             }
 
@@ -442,8 +442,7 @@ public class AudioEngineRealTests
             {
                 Name = "Faded",
                 FilePath = tempFile,
-                BusName = "Main",
-                Volume = 0.75,
+                Sends = [new BusSend { BusName = "Main", Volume = 0.75 }],
                 FadeInSeconds = 0.1,
                 FadeOutSeconds = 0.2,
             };
@@ -485,7 +484,7 @@ public class AudioEngineRealTests
 
             for (int i = 0; i < 5; i++)
             {
-                var clip = new AudioClip { Name = $"Clip {i}", FilePath = tempFile, BusName = "Main" };
+                var clip = new AudioClip { Name = $"Clip {i}", FilePath = tempFile, Sends = [new BusSend { BusName = "Main" }] };
                 await engine.PlayClipAsync(clip);
             }
 
@@ -516,7 +515,7 @@ public class AudioEngineRealTests
         {
             await cache.PreloadAsync([tempFile]);
 
-            var clip = new AudioClip { Name = "Test", FilePath = tempFile, BusName = "Main" };
+            var clip = new AudioClip { Name = "Test", FilePath = tempFile, Sends = [new BusSend { BusName = "Main" }] };
             await engine.PlayClipAsync(clip);
             engine.ActiveVoices.Should().Be(1);
 

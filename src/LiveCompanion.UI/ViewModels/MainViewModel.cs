@@ -13,6 +13,12 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private ViewModelBase _currentView;
 
+    /// <summary>
+    /// True pendant l'initialisation asynchrone des moteurs audio/MIDI au démarrage.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isInitializing;
+
     [ObservableProperty]
     private string _activeSection = "Live";
 

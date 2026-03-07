@@ -507,22 +507,72 @@
                                                      IsReadOnly="True" />
                                         </DockPanel>
 
-                                        <!-- Bus -->
-                                        <TextBlock Text="BUS DE SORTIE" Style="{StaticResource SectionHeader}" />
-                                        <TextBox Text="{Binding BusName,
-                                                        UpdateSourceTrigger=PropertyChanged,
-                                                        ValidatesOnNotifyDataErrors=True}"
-                                                 Style="{StaticResource EditorTextBoxStyle}"
-                                                 Margin="0,0,0,12" />
+                                        <!-- Sends (multi-bus routing) -->
+                                        <DockPanel Margin="0,0,0,4">
+                                            <TextBlock Text="SENDS" Style="{StaticResource SectionHeader}"
+                                                       DockPanel.Dock="Left" VerticalAlignment="Center" />
+                                            <Button Content="+ Send"
+                                                    Command="{Binding AddSendCommand}"
+                                                    Style="{StaticResource ActionButtonStyle}"
+                                                    DockPanel.Dock="Right"
+                                                    HorizontalAlignment="Right"
+                                                    MinWidth="70"
+                                                    FontSize="11" />
+                                        </DockPanel>
+                                        <ItemsControl ItemsSource="{Binding Sends}" Margin="0,0,0,12">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#313244" CornerRadius="6"
+                                                            Padding="10,6" Margin="0,3">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="90" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="45" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
 
-                                        <!-- Volume -->
-                                        <TextBlock Text="VOLUME (0.0 — 1.0)" Style="{StaticResource SectionHeader}" />
-                                        <TextBox Text="{Binding Volume,
-                                                        UpdateSourceTrigger=LostFocus,
-                                                        ValidatesOnNotifyDataErrors=True,
-                                                        StringFormat={}{0:0.##}}"
-                                                 Style="{StaticResource EditorTextBoxStyle}"
-                                                 Margin="0,0,0,12" />
+                                                            <!-- Bus name -->
+                                                            <TextBox Grid.Column="0"
+                                                                     Text="{Binding BusName, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Style="{StaticResource EditorTextBoxStyle}"
+                                                                     FontSize="12" />
+
+                                                            <!-- Volume slider -->
+                                                            <Slider Grid.Column="1"
+                                                                    Value="{Binding Volume}"
+                                                                    Minimum="0" Maximum="1"
+                                                                    TickFrequency="0.01"
+                                                                    IsSnapToTickEnabled="False"
+                                                                    VerticalAlignment="Center"
+                                                                    Margin="8,0" />
+
+                                                            <!-- Volume display -->
+                                                            <TextBlock Grid.Column="2"
+                                                                       Text="{Binding Volume, StringFormat={}{0:0.00}}"
+                                                                       Foreground="#A6ADC8"
+                                                                       FontSize="12"
+                                                                       VerticalAlignment="Center"
+                                                                       HorizontalAlignment="Right" />
+
+                                                            <!-- Remove button -->
+                                                            <Button Grid.Column="3"
+                                                                    Content="×"
+                                                                    Command="{Binding DataContext.RemoveSendCommand,
+                                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Foreground="#F38BA8"
+                                                                    Background="Transparent"
+                                                                    BorderThickness="0"
+                                                                    FontSize="14"
+                                                                    Cursor="Hand"
+                                                                    Margin="6,0,0,0"
+                                                                    VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
 
                                         <!-- Fades -->
                                         <Grid Margin="0,0,0,12">

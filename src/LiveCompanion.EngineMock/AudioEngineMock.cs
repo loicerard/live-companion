@@ -8,7 +8,7 @@ namespace LiveCompanion.EngineMock;
 /// Gère jusqu'à <see cref="MaxVoices"/> lectures simultanées fictives.
 /// Thread-safe : le compteur de voix est modifié exclusivement via <see cref="Interlocked"/>.
 /// </summary>
-public sealed class AudioEngineMock : IAudioEngine
+public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider
 {
     /// <summary>Nombre maximum de voix simultanées simulées.</summary>
     public const int MaxVoices = 16;
@@ -19,7 +19,10 @@ public sealed class AudioEngineMock : IAudioEngine
     private static readonly IReadOnlyList<int> _fakeBufferSizes =
         [64, 128, 256, 512, 1024];
 
+    private static readonly string[] DefaultBusNames = ["Main", "Click"];
+
     private readonly ILogService _log;
+    private readonly Random _random = new();
     private volatile bool _initialized;
     private int _activeVoices; // modified via Interlocked
     private AudioConfig? _config;
@@ -73,23 +76,26 @@ public sealed class AudioEngineMock : IAudioEngine
         ArgumentNullException.ThrowIfNull(clip);
         ThrowIfNotInitialized();
 
-        if (Volatile.Read(ref _activeVoices) >= MaxVoices)
+        foreach (var send in clip.Sends)
         {
-            _log.Warn(LogSource.EngineMock, $"[AudioEngine] Voice limit ({MaxVoices}) reached — clip '{clip.Name}' dropped.");
-            return Task.CompletedTask;
+            if (Volatile.Read(ref _activeVoices) >= MaxVoices)
+            {
+                _log.Warn(LogSource.EngineMock, $"[AudioEngine] Voice limit ({MaxVoices}) reached — clip '{clip.Name}' send '{send.BusName}' dropped.");
+                continue;
+            }
+
+            Interlocked.Increment(ref _activeVoices);
+            _log.Debug(LogSource.EngineMock, $"[AudioEngine] Playing '{clip.Name}' on bus '{send.BusName}' " +
+                            $"vol={send.Volume:F2} — active voices={ActiveVoices}");
+
+            // Simule une courte durée de lecture (200 ms) puis libère la voix.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(200).ConfigureAwait(false);
+                Interlocked.Decrement(ref _activeVoices);
+                _log.Debug(LogSource.EngineMock, $"[AudioEngine] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
+            });
         }
-
-        Interlocked.Increment(ref _activeVoices);
-        _log.Debug(LogSource.EngineMock, $"[AudioEngine] Playing '{clip.Name}' on bus '{clip.BusName}' " +
-                        $"vol={clip.Volume:F2} — active voices={ActiveVoices}");
-
-        // Simule une courte durée de lecture (200 ms) puis libère la voix.
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(200).ConfigureAwait(false);
-            Interlocked.Decrement(ref _activeVoices);
-            _log.Debug(LogSource.EngineMock, $"[AudioEngine] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
-        });
 
         return Task.CompletedTask;
     }
@@ -111,6 +117,35 @@ public sealed class AudioEngineMock : IAudioEngine
         _config = null;
         _log.Debug(LogSource.EngineMock, "[AudioEngine] Shutdown");
         return Task.CompletedTask;
+    }
+
+    // ------------------------------------------------------------------ //
+    // IAudioMeterProvider
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, (float Left, float Right)> GetBusLevels()
+    {
+        int voices = ActiveVoices;
+        var busNames = _config?.BusMappings.Keys ?? (IEnumerable<string>)DefaultBusNames;
+
+        var levels = new Dictionary<string, (float Left, float Right)>();
+        foreach (var bus in busNames)
+        {
+            if (voices == 0)
+            {
+                levels[bus] = (0f, 0f);
+            }
+            else
+            {
+                // Simuler un niveau proportionnel aux voix actives avec un léger jitter
+                float baseLevel = MathF.Min(0.2f + voices * 0.05f, 0.8f);
+                float jitter = (float)(_random.NextDouble() * 0.1);
+                levels[bus] = (baseLevel + jitter, baseLevel + jitter);
+            }
+        }
+
+        return levels;
     }
 
     // ------------------------------------------------------------------ //
