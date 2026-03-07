@@ -3,139 +3,25 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="#181825">
 
-    <UserControl.Resources>
-        <!-- Style carte -->
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#1E1E2E" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="20,16" />
-            <Setter Property="Margin" Value="0,6" />
-        </Style>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,24">
+        <StackPanel Margin="28,24">
 
-        <!-- Style label -->
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#6C7086" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,12" />
-        </Style>
-
-        <!-- Style label champ -->
-        <Style x:Key="FieldLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#A6ADC8" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,0,12,0" />
-        </Style>
-
-        <!-- Style ComboBox -->
-        <Style x:Key="ConfigComboStyle" TargetType="ComboBox">
-            <Setter Property="MinWidth" Value="200" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Margin" Value="0,4" />
-        </Style>
-
-        <!-- Style bouton action -->
-        <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="MinWidth" Value="120" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#CDD6F4" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,8,8,0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="#313244"
-                                CornerRadius="6"
-                                Padding="14,6"
-                                BorderBrush="#45475A"
-                                BorderThickness="1">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#45475A" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.4" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Style port MIDI (toggle) -->
-        <Style x:Key="MidiPortToggleStyle" TargetType="ToggleButton">
-            <Setter Property="MinWidth" Value="180" />
-            <Setter Property="MinHeight" Value="40" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="#A6ADC8" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,3" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="border"
-                                Background="#313244"
-                                CornerRadius="8"
-                                Padding="14,8"
-                                BorderBrush="#45475A"
-                                BorderThickness="1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Ellipse x:Name="indicator"
-                                         Width="10" Height="10"
-                                         Fill="#585B70"
-                                         Margin="0,0,10,0"
-                                         VerticalAlignment="Center" />
-                                <ContentPresenter Grid.Column="1"
-                                                  VerticalAlignment="Center" />
-                            </Grid>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#2D3A2D" />
-                                <Setter TargetName="border" Property="BorderBrush" Value="#A6E3A1" />
-                                <Setter TargetName="indicator" Property="Fill" Value="#A6E3A1" />
-                                <Setter Property="Foreground" Value="#A6E3A1" />
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#45475A" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </UserControl.Resources>
-
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
-        <StackPanel Margin="24">
-
-            <!-- Titre page -->
+            <!-- Page title -->
             <TextBlock Text="Configuration"
-                       Foreground="White"
-                       FontSize="24"
+                       Foreground="#CDD6F4"
+                       FontSize="26"
                        FontWeight="Bold"
-                       Margin="0,0,0,16" />
+                       Margin="0,0,0,20" />
 
             <!-- ============================================================ -->
-            <!-- SECTION AUDIO                                                -->
+            <!-- AUDIO SECTION                                                -->
             <!-- ============================================================ -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
                     <TextBlock Text="CONFIGURATION AUDIO"
                                Style="{StaticResource SectionHeader}" />
 
-                    <!-- Driver ASIO -->
+                    <!-- ASIO Driver -->
                     <Grid Margin="0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="140" />
@@ -199,13 +85,12 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Bouton Appliquer Audio -->
+                    <!-- Apply Audio button -->
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                         <Button Content="Appliquer Audio"
                                 Command="{Binding ApplyAudioConfigCommand}"
                                 Style="{StaticResource ActionButtonStyle}" />
 
-                        <!-- Indicateur statut -->
                         <TextBlock Text="{Binding AudioStatusMessage}"
                                    Foreground="#A6E3A1"
                                    FontSize="12"
@@ -216,7 +101,7 @@
             </Border>
 
             <!-- ============================================================ -->
-            <!-- SECTION MIDI                                                 -->
+            <!-- MIDI SECTION                                                 -->
             <!-- ============================================================ -->
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
@@ -242,7 +127,7 @@
                                FontSize="13"
                                Margin="0,0,0,8" />
 
-                    <!-- Liste des ports MIDI -->
+                    <!-- MIDI port list -->
                     <ItemsControl ItemsSource="{Binding AvailableMidiPorts}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -253,7 +138,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Boutons MIDI -->
+                    <!-- MIDI buttons -->
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                         <Button Content="Appliquer MIDI"
                                 Command="{Binding ApplyMidiConfigCommand}"
@@ -264,13 +149,13 @@
                                 Style="{StaticResource ActionButtonStyle}" />
                     </StackPanel>
 
-                    <!-- Statut MIDI -->
+                    <!-- MIDI status -->
                     <TextBlock Text="{Binding MidiStatusMessage}"
                                Foreground="#F9E2AF"
                                FontSize="12"
                                Margin="0,8,0,0" />
 
-                    <!-- Résultat test -->
+                    <!-- Test result -->
                     <TextBlock Text="{Binding MidiTestResult}"
                                Foreground="#89B4FA"
                                FontSize="12"

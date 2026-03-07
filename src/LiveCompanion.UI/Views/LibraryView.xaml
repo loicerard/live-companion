@@ -3,134 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="#181825">
 
-    <UserControl.Resources>
-        <!-- Style carte -->
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#1E1E2E" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="20,16" />
-            <Setter Property="Margin" Value="0,6" />
-        </Style>
-
-        <!-- Style section header -->
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#6C7086" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,12" />
-        </Style>
-
-        <!-- Style bouton action -->
-        <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="MinWidth" Value="100" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#CDD6F4" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,4,8,4" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="#313244"
-                                CornerRadius="6"
-                                Padding="14,6"
-                                BorderBrush="#45475A"
-                                BorderThickness="1">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#45475A" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.4" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Style bouton accent -->
-        <Style x:Key="AccentButtonStyle" TargetType="Button">
-            <Setter Property="MinWidth" Value="100" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#1E1E2E" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,4,8,4" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="#89B4FA"
-                                CornerRadius="6"
-                                Padding="14,6"
-                                BorderThickness="0">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#74A8FC" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.4" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Style TextBox -->
-        <Style x:Key="EditorTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Background" Value="#313244" />
-            <Setter Property="Foreground" Value="#CDD6F4" />
-            <Setter Property="BorderBrush" Value="#45475A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="8,6" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="CaretBrush" Value="#CDD6F4" />
-        </Style>
-
-        <!-- Style ListBoxItem -->
-        <Style x:Key="LibraryListItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="#CDD6F4" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="border"
-                                Background="Transparent"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}"
-                                Margin="0,1">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#313244" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#2D3A5C" />
-                                <Setter TargetName="border" Property="BorderBrush" Value="#89B4FA" />
-                                <Setter TargetName="border" Property="BorderThickness" Value="1" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </UserControl.Resources>
-
-    <Grid Margin="24">
+    <Grid Margin="28,24">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="16" />
@@ -138,7 +11,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- ============================================================ -->
-        <!-- Colonne gauche : MORCEAUX                                     -->
+        <!-- Left column: SONGS                                           -->
         <!-- ============================================================ -->
         <Border Grid.Column="0" Style="{StaticResource CardStyle}">
             <DockPanel>
@@ -146,7 +19,7 @@
                            Text="MORCEAUX"
                            Style="{StaticResource SectionHeader}" />
 
-                <!-- Barre de recherche -->
+                <!-- Search bar -->
                 <TextBox DockPanel.Dock="Top"
                          Text="{Binding SearchFilter, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource EditorTextBoxStyle}"
@@ -154,7 +27,7 @@
                     <TextBox.Tag>Rechercher...</TextBox.Tag>
                 </TextBox>
 
-                <!-- Barre de création -->
+                <!-- Create bar -->
                 <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -170,14 +43,13 @@
                             Style="{StaticResource AccentButtonStyle}" />
                 </Grid>
 
-                <!-- Boutons d'action -->
-                <StackPanel DockPanel.Dock="Bottom"
-                            Orientation="Horizontal"
-                            Margin="0,8,0,0">
+                <!-- Action buttons -->
+                <WrapPanel DockPanel.Dock="Bottom"
+                           Margin="0,8,0,0">
                     <Button Content="Supprimer"
                             Command="{Binding DeleteSongCommand}"
                             Style="{StaticResource ActionButtonStyle}" />
-                    <Button Content="Ajouter à playlist &#x2192;"
+                    <Button Content="Ajouter à playlist"
                             Command="{Binding AddToPlaylistCommand}"
                             Style="{StaticResource AccentButtonStyle}" />
                     <Button Content="Exporter .json"
@@ -192,16 +64,16 @@
                     <Button Content="Importer tout"
                             Command="{Binding ImportAllSongsCommand}"
                             Style="{StaticResource ActionButtonStyle}" />
-                </StackPanel>
+                </WrapPanel>
 
-                <!-- Statut -->
+                <!-- Status -->
                 <TextBlock DockPanel.Dock="Bottom"
                            Text="{Binding StatusMessage}"
                            Foreground="#A6ADC8"
                            FontSize="11"
                            Margin="0,6,0,0" />
 
-                <!-- Liste des morceaux -->
+                <!-- Song list -->
                 <ListBox ItemsSource="{Binding FilteredSongs}"
                          SelectedItem="{Binding SelectedSong}"
                          Background="Transparent"
@@ -234,7 +106,7 @@
         </Border>
 
         <!-- ============================================================ -->
-        <!-- Colonne droite : PLAYLISTS                                    -->
+        <!-- Right column: PLAYLISTS                                      -->
         <!-- ============================================================ -->
         <Border Grid.Column="2" Style="{StaticResource CardStyle}">
             <DockPanel>
@@ -242,7 +114,7 @@
                            Text="PLAYLISTS"
                            Style="{StaticResource SectionHeader}" />
 
-                <!-- Barre de création playlist -->
+                <!-- Create playlist bar -->
                 <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -258,7 +130,7 @@
                             Style="{StaticResource AccentButtonStyle}" />
                 </Grid>
 
-                <!-- Liste des playlists -->
+                <!-- Playlist list -->
                 <ListBox DockPanel.Dock="Top"
                          ItemsSource="{Binding Playlists}"
                          SelectedItem="{Binding SelectedPlaylist}"
@@ -282,10 +154,9 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <!-- Boutons d'action playlists -->
-                <StackPanel DockPanel.Dock="Top"
-                            Orientation="Horizontal"
-                            Margin="0,4,0,8">
+                <!-- Playlist action buttons -->
+                <WrapPanel DockPanel.Dock="Top"
+                           Margin="0,4,0,8">
                     <Button Content="Supprimer playlist"
                             Command="{Binding DeletePlaylistCommand}"
                             Style="{StaticResource ActionButtonStyle}" />
@@ -295,20 +166,20 @@
                     <Button Content="Importer playlists"
                             Command="{Binding ImportPlaylistsCommand}"
                             Style="{StaticResource ActionButtonStyle}" />
-                </StackPanel>
+                </WrapPanel>
 
-                <!-- Séparateur -->
+                <!-- Separator -->
                 <Border DockPanel.Dock="Top"
                         Height="1"
-                        Background="#45475A"
+                        Background="#2A2A3C"
                         Margin="0,4,0,12" />
 
-                <!-- Contenu de la playlist -->
+                <!-- Playlist content -->
                 <TextBlock DockPanel.Dock="Top"
                            Text="CONTENU DE LA PLAYLIST"
                            Style="{StaticResource SectionHeader}" />
 
-                <!-- Boutons de gestion -->
+                <!-- Management buttons -->
                 <StackPanel DockPanel.Dock="Bottom"
                             Orientation="Horizontal"
                             Margin="0,8,0,0">
@@ -323,7 +194,7 @@
                             Style="{StaticResource ActionButtonStyle}" />
                 </StackPanel>
 
-                <!-- Liste des morceaux dans la playlist -->
+                <!-- Playlist songs -->
                 <ListBox ItemsSource="{Binding PlaylistSongs}"
                          SelectedItem="{Binding SelectedPlaylistSong}"
                          Background="Transparent"
