@@ -26,6 +26,9 @@ public static class ServiceCollectionExtensions
         // Live Mode Guard — empêche les actions destructives en mode Live
         services.AddSingleton<ILiveModeGuard, LiveModeGuard>();
 
+        // Import MIDI — lecture de fichiers .mid pour extraire la structure
+        services.AddSingleton<IMidiImportService, MidiImportServiceReal>();
+
         // AutoSave — sauvegarde périodique des morceaux modifiés
         services.AddSingleton<IAutoSaveService>(sp =>
         {

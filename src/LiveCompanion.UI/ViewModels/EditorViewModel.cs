@@ -11,6 +11,7 @@ public partial class EditorViewModel : ViewModelBase
 {
     private readonly IProjectStore _projectStore;
     private readonly IMidiEngine _midiEngine;
+    private readonly IMidiImportService _midiImport;
     private readonly ILogService _log;
     private readonly ILiveModeGuard _liveModeGuard;
 
@@ -95,10 +96,11 @@ public partial class EditorViewModel : ViewModelBase
     // Constructeur
     // ------------------------------------------------------------------ //
 
-    public EditorViewModel(IProjectStore projectStore, IMidiEngine midiEngine, ILogService log, ILiveModeGuard liveModeGuard)
+    public EditorViewModel(IProjectStore projectStore, IMidiEngine midiEngine, IMidiImportService midiImport, ILogService log, ILiveModeGuard liveModeGuard)
     {
         _projectStore = projectStore;
         _midiEngine = midiEngine;
+        _midiImport = midiImport;
         _log = log;
         _liveModeGuard = liveModeGuard;
         RefreshSongList();
@@ -460,6 +462,56 @@ public partial class EditorViewModel : ViewModelBase
         ClickTrackPath = null;
         ClickTrackFileName = null;
         StatusMessage = "Piste de clic supprimée.";
+    }
+
+    // ------------------------------------------------------------------ //
+    // Import MIDI — extraction de la structure du morceau
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private void ImportFromMidi()
+    {
+        if (SelectedSong is null) return;
+        if (_liveModeGuard.IsLive)
+        {
+            StatusMessage = "Action non disponible en mode Live.";
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importer la structure depuis un fichier MIDI",
+            Filter = "Fichiers MIDI|*.mid;*.midi|Tous|*.*",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            int countdownBars = _projectStore.GetSettings().CountdownBars;
+            var result = _midiImport.Import(dialog.FileName, countdownBars);
+
+            // Remplacer les sections existantes par celles importées
+            SelectedSong.Sections.Clear();
+            Sections.Clear();
+
+            foreach (var section in result.Sections)
+            {
+                SelectedSong.Sections.Add(section);
+                Sections.Add(new SectionViewModel(section));
+            }
+
+            if (Sections.Count > 0)
+                SelectedSection = Sections[0];
+
+            _log.Debug(LogSource.UI, $"[EditorVM] Import MIDI → {result.Sections.Count} sections depuis {System.IO.Path.GetFileName(dialog.FileName)}");
+            StatusMessage = $"Import MIDI : {result.Sections.Count} section(s) importée(s) depuis {System.IO.Path.GetFileName(dialog.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            _log.Debug(LogSource.UI, $"[EditorVM] Erreur import MIDI : {ex.Message}");
+            StatusMessage = $"Erreur d'import MIDI : {ex.Message}";
+        }
     }
 
     // ------------------------------------------------------------------ //
