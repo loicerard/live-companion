@@ -250,8 +250,7 @@
                                            FontSize="10"
                                            FontWeight="Bold"
                                            HorizontalAlignment="Center"
-                                           Margin="0,0,0,8"
-                                           TextBlock.Typography.Capitals="AllSmallCaps" />
+                                           Margin="0,0,0,8" />
                                 <!-- VU meter bars (L/R) -->
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Height="60">
                                     <Border Width="16" Height="60" Background="#262637" CornerRadius="4" Margin="2,0">
