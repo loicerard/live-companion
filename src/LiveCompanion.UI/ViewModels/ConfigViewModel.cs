@@ -62,6 +62,43 @@ public partial class ConfigViewModel : ViewModelBase
     public int SelectedMidiPortCount => AvailableMidiPorts.Count(p => p.IsSelected);
 
     // ------------------------------------------------------------------ //
+    // Profils MIDI — Propriétés observables
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Profils MIDI (un profil = un appareil avec ses raccourcis).</summary>
+    public ObservableCollection<MidiProfile> MidiProfiles { get; } = [];
+
+    [ObservableProperty]
+    private MidiProfile? _selectedMidiProfile;
+
+    /// <summary>Raccourcis du profil sélectionné.</summary>
+    public ObservableCollection<MidiPreset> CurrentProfilePresets { get; } = [];
+
+    [ObservableProperty]
+    private MidiPreset? _selectedPreset;
+
+    /// <summary>Noms des ports MIDI disponibles pour l'association au profil.</summary>
+    public IReadOnlyList<string> AvailableMidiPortNames => _midiEngine.GetAvailablePorts();
+
+    /// <summary>Types d'événements MIDI pour le ComboBox d'ajout de raccourci.</summary>
+    public IReadOnlyList<MidiEventType> AvailableMidiEventTypes { get; } = Enum.GetValues<MidiEventType>();
+
+    [ObservableProperty]
+    private string _newPresetName = string.Empty;
+
+    [ObservableProperty]
+    private MidiEventType _newPresetType = MidiEventType.ControlChange;
+
+    [ObservableProperty]
+    private int _newPresetData1;
+
+    [ObservableProperty]
+    private int _newPresetData2;
+
+    [ObservableProperty]
+    private string? _profileStatusMessage;
+
+    // ------------------------------------------------------------------ //
     // Constructeur
     // ------------------------------------------------------------------ //
 
@@ -98,8 +135,34 @@ public partial class ConfigViewModel : ViewModelBase
             AvailableMidiPorts.Add(item);
         }
 
+        // Charger les profils MIDI
+        foreach (var profile in _store.GetSettings().MidiProfiles)
+            MidiProfiles.Add(profile);
+
         // Restaurer la configuration sauvegardée
         RestoreSavedSettings();
+    }
+
+    partial void OnSelectedMidiProfileChanged(MidiProfile? value)
+    {
+        CurrentProfilePresets.Clear();
+        SelectedPreset = null;
+
+        if (value is null) return;
+
+        foreach (var preset in value.Presets)
+            CurrentProfilePresets.Add(preset);
+    }
+
+    partial void OnSelectedPresetChanged(MidiPreset? value)
+    {
+        if (value is null) return;
+
+        // Pré-remplir le formulaire avec les valeurs du preset sélectionné
+        NewPresetName = value.Name;
+        NewPresetType = value.Type;
+        NewPresetData1 = value.Data1;
+        NewPresetData2 = value.Data2;
     }
 
     // ------------------------------------------------------------------ //
@@ -251,16 +314,7 @@ public partial class ConfigViewModel : ViewModelBase
         // Envoie un NoteOn de test sur chaque port sélectionné
         foreach (var port in selectedPorts)
         {
-            var testEvent = new MidiEvent
-            {
-                Type = MidiEventType.NoteOn,
-                DeviceOut = port,
-                Channel = 1,
-                Data1 = 60, // C4
-                Data2 = 100,
-                Position = new TimelinePosition(0, 1, 1, 0)
-            };
-            await _midiEngine.SendEventAsync(testEvent);
+            await _midiEngine.SendDirectAsync(MidiEventType.NoteOn, port, 1, 60, 100);
         }
 
         MidiTestResult = $"Test envoyé sur {selectedPorts.Count} port(s) — NoteOn C4";
@@ -281,6 +335,120 @@ public partial class ConfigViewModel : ViewModelBase
         {
             MidiStatusMessage = "Maximum 6 ports MIDI.";
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Profils MIDI — Commandes
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private void AddMidiProfile()
+    {
+        var profile = new MidiProfile { Name = $"Profil {MidiProfiles.Count + 1}" };
+        MidiProfiles.Add(profile);
+        SelectedMidiProfile = profile;
+        PersistProfiles();
+        ProfileStatusMessage = $"Profil \"{profile.Name}\" créé.";
+    }
+
+    [RelayCommand]
+    private void DeleteMidiProfile()
+    {
+        if (SelectedMidiProfile is null) return;
+
+        var name = SelectedMidiProfile.Name;
+        MidiProfiles.Remove(SelectedMidiProfile);
+        SelectedMidiProfile = MidiProfiles.FirstOrDefault();
+        PersistProfiles();
+        ProfileStatusMessage = $"Profil \"{name}\" supprimé.";
+    }
+
+    [RelayCommand]
+    private void RenameMidiProfile(string newName)
+    {
+        if (SelectedMidiProfile is null || string.IsNullOrWhiteSpace(newName)) return;
+
+        SelectedMidiProfile.Name = newName.Trim();
+        // Force UI refresh — replace in collection
+        var index = MidiProfiles.IndexOf(SelectedMidiProfile);
+        if (index >= 0)
+        {
+            var profile = SelectedMidiProfile;
+            MidiProfiles[index] = profile;
+            SelectedMidiProfile = profile;
+        }
+        PersistProfiles();
+    }
+
+    [RelayCommand]
+    private void AddPresetToProfile()
+    {
+        if (SelectedMidiProfile is null) return;
+
+        var preset = new MidiPreset
+        {
+            Name = string.IsNullOrWhiteSpace(NewPresetName) ? $"Raccourci {CurrentProfilePresets.Count + 1}" : NewPresetName.Trim(),
+            Type = NewPresetType,
+            Data1 = NewPresetData1,
+            Data2 = NewPresetData2,
+        };
+
+        SelectedMidiProfile.Presets.Add(preset);
+        CurrentProfilePresets.Add(preset);
+        SelectedPreset = preset;
+
+        // Reset form
+        NewPresetName = string.Empty;
+        NewPresetData1 = 0;
+        NewPresetData2 = 0;
+
+        PersistProfiles();
+        ProfileStatusMessage = $"Raccourci \"{preset.Name}\" ajouté.";
+    }
+
+    [RelayCommand]
+    private void UpdateSelectedPreset()
+    {
+        if (SelectedMidiProfile is null || SelectedPreset is null) return;
+
+        SelectedPreset.Name = string.IsNullOrWhiteSpace(NewPresetName)
+            ? SelectedPreset.Name
+            : NewPresetName.Trim();
+        SelectedPreset.Type = NewPresetType;
+        SelectedPreset.Data1 = NewPresetData1;
+        SelectedPreset.Data2 = NewPresetData2;
+
+        // Refresh dans la liste observable pour mettre à jour l'affichage
+        var index = CurrentProfilePresets.IndexOf(SelectedPreset);
+        if (index >= 0)
+        {
+            var preset = SelectedPreset;
+            CurrentProfilePresets[index] = preset;
+            SelectedPreset = preset;
+        }
+
+        PersistProfiles();
+        ProfileStatusMessage = $"Raccourci \"{SelectedPreset.Name}\" modifié.";
+    }
+
+    [RelayCommand]
+    private void DeletePresetFromProfile()
+    {
+        if (SelectedMidiProfile is null || SelectedPreset is null) return;
+
+        var name = SelectedPreset.Name;
+        SelectedMidiProfile.Presets.Remove(SelectedPreset);
+        CurrentProfilePresets.Remove(SelectedPreset);
+        SelectedPreset = CurrentProfilePresets.LastOrDefault();
+        PersistProfiles();
+        ProfileStatusMessage = $"Raccourci \"{name}\" supprimé.";
+    }
+
+    private void PersistProfiles()
+    {
+        var settings = _store.GetSettings();
+        settings.MidiProfiles = MidiProfiles.ToList();
+        _store.SaveSettings(settings);
     }
 }
 

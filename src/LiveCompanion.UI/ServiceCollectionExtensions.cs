@@ -112,11 +112,13 @@ public static class ServiceCollectionExtensions
             var audioMock = sp.GetRequiredService<AudioEngineMock>();
             var audioEngine = sp.GetRequiredService<IAudioEngine>();
             var midiEngine = sp.GetRequiredService<IMidiEngine>();
+            var projectStore = sp.GetRequiredService<IProjectStore>();
             return new TimelineSchedulerMock(
                 log,
                 () => audioMock.ActiveVoices > 0,
                 audioEngine,
-                midiEngine);
+                midiEngine,
+                projectStore);
         });
 
         return services;
@@ -164,11 +166,13 @@ public static class ServiceCollectionExtensions
             var audioReal = sp.GetRequiredService<AudioEngineReal>();
             var audioEngine = sp.GetRequiredService<IAudioEngine>();
             var midiEngine = sp.GetRequiredService<IMidiEngine>();
+            var projectStore = sp.GetRequiredService<IProjectStore>();
             return new TimelineSchedulerReal(
                 log,
                 () => audioReal.ActiveVoices > 0,
                 audioEngine,
-                midiEngine);
+                midiEngine,
+                projectStore);
         });
 
         return services;

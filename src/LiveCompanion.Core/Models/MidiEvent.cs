@@ -11,11 +11,8 @@ public class MidiEvent
     /// <summary>Type d'événement MIDI.</summary>
     public MidiEventType Type { get; set; } = MidiEventType.ProgramChange;
 
-    /// <summary>Nom du port/device MIDI de sortie cible.</summary>
-    public string DeviceOut { get; set; } = string.Empty;
-
-    /// <summary>Canal MIDI (1–16).</summary>
-    public int Channel { get; set; } = 1;
+    /// <summary>Identifiants des profils MIDI ciblés (multi-select).</summary>
+    public List<Guid> ProfileIds { get; set; } = [];
 
     /// <summary>
     /// Premier octet de données (numéro de programme, numéro de CC, numéro de note…).

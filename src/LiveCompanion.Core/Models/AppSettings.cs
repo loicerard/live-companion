@@ -16,4 +16,7 @@ public class AppSettings
     /// Valeur par défaut : 3.
     /// </summary>
     public int CountdownBars { get; set; } = 3;
+
+    /// <summary>Profils MIDI par appareil (ex : "Quad Cortex") avec raccourcis prédéfinis.</summary>
+    public List<MidiProfile> MidiProfiles { get; set; } = [];
 }

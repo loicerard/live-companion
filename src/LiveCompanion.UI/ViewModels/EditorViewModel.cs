@@ -72,8 +72,20 @@ public partial class EditorViewModel : ViewModelBase
     /// <summary>Types d'événements MIDI pour le ComboBox.</summary>
     public IReadOnlyList<MidiEventType> AvailableMidiEventTypes { get; } = Enum.GetValues<MidiEventType>();
 
-    /// <summary>Ports MIDI de sortie disponibles (mock).</summary>
-    public IReadOnlyList<string> AvailableMidiPorts => _midiEngine.GetAvailablePorts();
+    // ------------------------------------------------------------------ //
+    // Profils MIDI (raccourcis par appareil)
+    // ------------------------------------------------------------------ //
+
+    public ObservableCollection<MidiProfile> MidiProfiles { get; } = [];
+
+    [ObservableProperty]
+    private MidiProfile? _selectedMidiProfile;
+
+    /// <summary>Raccourcis du profil sélectionné.</summary>
+    public ObservableCollection<MidiPreset> AvailablePresets { get; } = [];
+
+    [ObservableProperty]
+    private MidiPreset? _selectedMidiPreset;
 
     // ------------------------------------------------------------------ //
     // Piste de clic (#20)
@@ -104,6 +116,46 @@ public partial class EditorViewModel : ViewModelBase
         _log = log;
         _liveModeGuard = liveModeGuard;
         RefreshSongList();
+        LoadMidiProfiles();
+    }
+
+    private void LoadMidiProfiles()
+    {
+        MidiProfiles.Clear();
+        foreach (var profile in _projectStore.GetSettings().MidiProfiles)
+            MidiProfiles.Add(profile);
+
+        if (MidiProfiles.Count > 0)
+            SelectedMidiProfile = MidiProfiles[0];
+    }
+
+    partial void OnSelectedMidiProfileChanged(MidiProfile? value)
+    {
+        AvailablePresets.Clear();
+        SelectedMidiPreset = null;
+
+        if (value is null) return;
+
+        foreach (var preset in value.Presets)
+            AvailablePresets.Add(preset);
+    }
+
+    /// <summary>
+    /// Recharge les profils MIDI depuis les settings (appelé quand on revient de Config).
+    /// </summary>
+    public void RefreshMidiProfiles()
+    {
+        var previousProfileId = SelectedMidiProfile?.Id;
+        LoadMidiProfiles();
+
+        // Tenter de re-sélectionner le même profil
+        if (previousProfileId is not null)
+            SelectedMidiProfile = MidiProfiles.FirstOrDefault(p => p.Id == previousProfileId);
+
+        // Propager les profils mis à jour aux VMs d'événements MIDI existants
+        var profiles = MidiProfiles.ToList();
+        foreach (var evtVm in MidiEvents)
+            evtVm.RefreshProfiles(profiles);
     }
 
     private void RefreshSongList()
@@ -153,8 +205,9 @@ public partial class EditorViewModel : ViewModelBase
             SelectedAudioClip = AudioClips[0];
 
         // MIDI
+        var profiles = MidiProfiles.ToList();
         foreach (var evt in song.MidiEvents)
-            MidiEvents.Add(new MidiEventViewModel(evt));
+            MidiEvents.Add(new MidiEventViewModel(evt, profiles));
 
         if (MidiEvents.Count > 0)
             SelectedMidiEvent = MidiEvents[0];
@@ -377,13 +430,11 @@ public partial class EditorViewModel : ViewModelBase
         var evt = new MidiEvent
         {
             Type = MidiEventType.ProgramChange,
-            DeviceOut = AvailableMidiPorts.FirstOrDefault() ?? string.Empty,
-            Channel = 1,
             Position = TimelinePosition.Zero,
         };
 
         SelectedSong.MidiEvents.Add(evt);
-        var vm = new MidiEventViewModel(evt);
+        var vm = new MidiEventViewModel(evt, MidiProfiles.ToList());
         MidiEvents.Add(vm);
         SelectedMidiEvent = vm;
     }
@@ -414,7 +465,7 @@ public partial class EditorViewModel : ViewModelBase
 
         try
         {
-            await _midiEngine.SendEventAsync(SelectedMidiEvent.Model);
+            await _midiEngine.SendEventAsync(SelectedMidiEvent.Model, MidiProfiles.ToList());
             _log.Debug(LogSource.UI, $"[EditorVM] Test MIDI → {SelectedMidiEvent.DisplaySummary}");
             StatusMessage = $"Test MIDI envoyé : {SelectedMidiEvent.DisplaySummary}";
         }
@@ -422,6 +473,31 @@ public partial class EditorViewModel : ViewModelBase
         {
             StatusMessage = "Initialisez le MIDI dans Configuration avant de tester.";
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Commandes — Raccourcis MIDI (depuis profils)
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private void ApplyMidiPreset()
+    {
+        if (SelectedMidiEvent is null || SelectedMidiPreset is null) return;
+
+        SelectedMidiEvent.Type = SelectedMidiPreset.Type;
+        SelectedMidiEvent.Data1 = SelectedMidiPreset.Data1;
+        SelectedMidiEvent.Data2 = SelectedMidiPreset.Data2;
+
+        // Cocher automatiquement le profil source du raccourci
+        if (SelectedMidiProfile is not null)
+        {
+            var profileItem = SelectedMidiEvent.ProfileSelections
+                .FirstOrDefault(p => p.Profile.Id == SelectedMidiProfile.Id);
+            if (profileItem is not null)
+                profileItem.IsSelected = true;
+        }
+
+        StatusMessage = $"Raccourci \"{SelectedMidiPreset.Name}\" appliqué.";
     }
 
     // ------------------------------------------------------------------ //

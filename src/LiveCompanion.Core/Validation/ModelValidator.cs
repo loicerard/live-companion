@@ -82,10 +82,6 @@ public static class ModelValidator
             var e = song.MidiEvents[i];
             var prefix = $"MidiEvents[{i}]";
 
-            if (e.Channel < 1 || e.Channel > 16)
-                result.AddError($"{prefix}.Channel",
-                    $"Le canal MIDI doit être entre 1 et 16 (actuel : {e.Channel}).");
-
             if (e.Data1 < 0 || e.Data1 > 127)
                 result.AddError($"{prefix}.Data1",
                     $"Data1 MIDI doit être entre 0 et 127 (actuel : {e.Data1}).");

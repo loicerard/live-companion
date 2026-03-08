@@ -18,7 +18,7 @@ public sealed class MidiEngineMock : IMidiEngine
     private MidiConfig? _config;
 
     private readonly object _lock = new();
-    private readonly List<MidiEvent> _sentEvents = [];
+    private readonly List<MidiSentRecord> _sentEvents = [];
 
     public MidiEngineMock(ILogService log)
     {
@@ -33,7 +33,7 @@ public sealed class MidiEngineMock : IMidiEngine
     /// Copie en lecture seule de tous les événements MIDI envoyés depuis l'initialisation.
     /// Thread-safe.
     /// </summary>
-    public IReadOnlyList<MidiEvent> SentEvents
+    public IReadOnlyList<MidiSentRecord> SentEvents
     {
         get { lock (_lock) return _sentEvents.ToList().AsReadOnly(); }
     }
@@ -56,20 +56,34 @@ public sealed class MidiEngineMock : IMidiEngine
     public IReadOnlyList<string> GetAvailablePorts() => _fakePorts;
 
     /// <inheritdoc/>
-    public Task SendEventAsync(MidiEvent midiEvent)
+    public Task SendEventAsync(MidiEvent midiEvent, IReadOnlyList<MidiProfile> profiles)
     {
         ArgumentNullException.ThrowIfNull(midiEvent);
+        ArgumentNullException.ThrowIfNull(profiles);
         ThrowIfNotInitialized();
 
-        lock (_lock)
-            _sentEvents.Add(midiEvent);
+        foreach (var profileId in midiEvent.ProfileIds)
+        {
+            var profile = profiles.FirstOrDefault(p => p.Id == profileId);
+            if (profile?.DeviceOut is null)
+            {
+                _log.Warn(LogSource.EngineMock,
+                    $"[MidiEngine] Profil {profileId} introuvable ou sans port — événement ignoré.");
+                continue;
+            }
 
-        _log.Debug(LogSource.EngineMock,
-            $"[MidiEngine] Send — type={midiEvent.Type}, " +
-            $"device='{midiEvent.DeviceOut}', ch={midiEvent.Channel}, " +
-            $"data1={midiEvent.Data1}, data2={midiEvent.Data2}, " +
-            $"pos={midiEvent.Position}");
+            SendInternal(midiEvent.Type, profile.DeviceOut, profile.DefaultChannel,
+                midiEvent.Data1, midiEvent.Data2);
+        }
 
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task SendDirectAsync(MidiEventType type, string deviceOut, int channel, int data1, int data2)
+    {
+        ThrowIfNotInitialized();
+        SendInternal(type, deviceOut, channel, data1, data2);
         return Task.CompletedTask;
     }
 
@@ -88,6 +102,19 @@ public sealed class MidiEngineMock : IMidiEngine
     // Helpers
     // ------------------------------------------------------------------ //
 
+    private void SendInternal(MidiEventType type, string deviceOut, int channel, int data1, int data2)
+    {
+        var record = new MidiSentRecord(type, deviceOut, channel, data1, data2);
+
+        lock (_lock)
+            _sentEvents.Add(record);
+
+        _log.Debug(LogSource.EngineMock,
+            $"[MidiEngine] Send — type={type}, " +
+            $"device='{deviceOut}', ch={channel}, " +
+            $"data1={data1}, data2={data2}");
+    }
+
     private void ThrowIfNotInitialized()
     {
         if (!_initialized)
@@ -95,3 +122,8 @@ public sealed class MidiEngineMock : IMidiEngine
                 "MidiEngineMock n'est pas initialisé. Appelez InitializeAsync avant toute opération.");
     }
 }
+
+/// <summary>
+/// Enregistrement d'un message MIDI envoyé (pour les tests et le débogage).
+/// </summary>
+public record MidiSentRecord(MidiEventType Type, string DeviceOut, int Channel, int Data1, int Data2);

@@ -180,24 +180,6 @@ public class ModelValidatorTests
     // ------------------------------------------------------------------ //
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(17)]
-    [InlineData(-1)]
-    public void ValidateSong_MidiChannelOutOfRange_ShouldReturnError(int channel)
-    {
-        var song = new Song
-        {
-            Title = "Test",
-            MidiEvents = { new MidiEvent { Channel = channel } },
-        };
-
-        var result = ModelValidator.ValidateSong(song);
-
-        result.IsValid.Should().BeFalse();
-        result.Issues.Should().Contain(i => i.Field.Contains("Channel"));
-    }
-
-    [Theory]
     [InlineData(-1)]
     [InlineData(128)]
     public void ValidateSong_MidiData1OutOfRange_ShouldReturnError(int data1)
@@ -205,7 +187,7 @@ public class ModelValidatorTests
         var song = new Song
         {
             Title = "Test",
-            MidiEvents = { new MidiEvent { Channel = 1, Data1 = data1 } },
+            MidiEvents = { new MidiEvent { Data1 = data1 } },
         };
 
         var result = ModelValidator.ValidateSong(song);
@@ -222,7 +204,7 @@ public class ModelValidatorTests
         var song = new Song
         {
             Title = "Test",
-            MidiEvents = { new MidiEvent { Channel = 1, Data2 = data2 } },
+            MidiEvents = { new MidiEvent { Data2 = data2 } },
         };
 
         var result = ModelValidator.ValidateSong(song);
@@ -376,7 +358,7 @@ public class ModelValidatorTests
         var song = new Song
         {
             Title = "Test",
-            MidiEvents = { new MidiEvent { Channel = 1, Data1 = 0, Data2 = 127 } },
+            MidiEvents = { new MidiEvent { Data1 = 0, Data2 = 127 } },
         };
 
         ModelValidator.ValidateSong(song).IsValid.Should().BeTrue();

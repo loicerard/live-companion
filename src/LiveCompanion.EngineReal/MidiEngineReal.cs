@@ -115,29 +115,34 @@ public sealed class MidiEngineReal : IMidiEngine, IDisposable
     }
 
     /// <inheritdoc/>
-    public Task SendEventAsync(MidiEvent midiEvent)
+    public Task SendEventAsync(MidiEvent midiEvent, IReadOnlyList<MidiProfile> profiles)
     {
         ArgumentNullException.ThrowIfNull(midiEvent);
+        ArgumentNullException.ThrowIfNull(profiles);
         ThrowIfNotInitialized();
 
-        lock (_lock)
+        foreach (var profileId in midiEvent.ProfileIds)
         {
-            if (!_openPorts.TryGetValue(midiEvent.DeviceOut, out var midiOut))
+            var profile = profiles.FirstOrDefault(p => p.Id == profileId);
+            if (profile?.DeviceOut is null)
             {
                 _log.Warn(LogSource.EngineReal,
-                    $"[MidiEngine] Device '{midiEvent.DeviceOut}' non ouvert — événement ignoré.");
-                return Task.CompletedTask;
+                    $"[MidiEngine] Profil {profileId} introuvable ou sans port — événement ignoré.");
+                continue;
             }
 
-            int message = BuildMidiMessage(midiEvent);
-            midiOut.Send(message);
+            SendToPort(midiEvent.Type, profile.DeviceOut, profile.DefaultChannel,
+                midiEvent.Data1, midiEvent.Data2);
         }
 
-        _log.Debug(LogSource.EngineReal,
-            $"[MidiEngine] Send — type={midiEvent.Type}, " +
-            $"device='{midiEvent.DeviceOut}', ch={midiEvent.Channel}, " +
-            $"data1={midiEvent.Data1}, data2={midiEvent.Data2}");
+        return Task.CompletedTask;
+    }
 
+    /// <inheritdoc/>
+    public Task SendDirectAsync(MidiEventType type, string deviceOut, int channel, int data1, int data2)
+    {
+        ThrowIfNotInitialized();
+        SendToPort(type, deviceOut, channel, data1, data2);
         return Task.CompletedTask;
     }
 
@@ -165,34 +170,55 @@ public sealed class MidiEngineReal : IMidiEngine, IDisposable
     }
 
     // ------------------------------------------------------------------ //
-    // MIDI message building
+    // MIDI message building & sending
     // ------------------------------------------------------------------ //
+
+    private void SendToPort(MidiEventType type, string deviceOut, int channel, int data1, int data2)
+    {
+        lock (_lock)
+        {
+            if (!_openPorts.TryGetValue(deviceOut, out var midiOut))
+            {
+                _log.Warn(LogSource.EngineReal,
+                    $"[MidiEngine] Device '{deviceOut}' non ouvert — événement ignoré.");
+                return;
+            }
+
+            int message = BuildMidiMessage(type, channel, data1, data2);
+            midiOut.Send(message);
+        }
+
+        _log.Debug(LogSource.EngineReal,
+            $"[MidiEngine] Send — type={type}, " +
+            $"device='{deviceOut}', ch={channel}, " +
+            $"data1={data1}, data2={data2}");
+    }
 
     /// <summary>
     /// Construit le message MIDI 32 bits (short message) attendu par <see cref="MidiOut.Send"/>.
     /// Format : status | (data1 &lt;&lt; 8) | (data2 &lt;&lt; 16).
     /// </summary>
-    internal static int BuildMidiMessage(MidiEvent evt)
+    internal static int BuildMidiMessage(MidiEventType type, int channel, int data1, int data2)
     {
-        int channel = Math.Clamp(evt.Channel, 1, 16) - 1; // 0-based
-        int data1 = Math.Clamp(evt.Data1, 0, 127);
-        int data2 = Math.Clamp(evt.Data2, 0, 127);
+        int ch = Math.Clamp(channel, 1, 16) - 1; // 0-based
+        int d1 = Math.Clamp(data1, 0, 127);
+        int d2 = Math.Clamp(data2, 0, 127);
 
-        int status = evt.Type switch
+        int status = type switch
         {
-            MidiEventType.NoteOn => 0x90 | channel,
-            MidiEventType.NoteOff => 0x80 | channel,
-            MidiEventType.ControlChange => 0xB0 | channel,
-            MidiEventType.ProgramChange => 0xC0 | channel,
-            _ => throw new ArgumentOutOfRangeException(nameof(evt),
-                $"Type MIDI non supporté : {evt.Type}"),
+            MidiEventType.NoteOn => 0x90 | ch,
+            MidiEventType.NoteOff => 0x80 | ch,
+            MidiEventType.ControlChange => 0xB0 | ch,
+            MidiEventType.ProgramChange => 0xC0 | ch,
+            _ => throw new ArgumentOutOfRangeException(nameof(type),
+                $"Type MIDI non supporté : {type}"),
         };
 
         // ProgramChange n'a qu'un seul octet de données
-        if (evt.Type == MidiEventType.ProgramChange)
-            return status | (data1 << 8);
+        if (type == MidiEventType.ProgramChange)
+            return status | (d1 << 8);
 
-        return status | (data1 << 8) | (data2 << 16);
+        return status | (d1 << 8) | (d2 << 16);
     }
 
     // ------------------------------------------------------------------ //

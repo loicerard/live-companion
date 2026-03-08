@@ -26,6 +26,7 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
     private readonly Func<bool> _hasActiveVoices;
     private readonly IAudioEngine? _audioEngine;
     private readonly IMidiEngine? _midiEngine;
+    private readonly IProjectStore? _projectStore;
 
     // ------------------------------------------------------------------ //
     // State
@@ -52,12 +53,14 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
         ILogService log,
         Func<bool>? hasActiveVoices = null,
         IAudioEngine? audioEngine = null,
-        IMidiEngine? midiEngine = null)
+        IMidiEngine? midiEngine = null,
+        IProjectStore? projectStore = null)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _hasActiveVoices = hasActiveVoices ?? (() => false);
         _audioEngine = audioEngine;
         _midiEngine = midiEngine;
+        _projectStore = projectStore;
     }
 
     // ------------------------------------------------------------------ //
@@ -432,6 +435,7 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
 
     private void TriggerMidiAtPosition(Song song, TimelinePosition pos)
     {
+        var profiles = _projectStore?.GetSettings().MidiProfiles ?? [];
         foreach (var evt in song.MidiEvents)
         {
             if (evt.Position.SectionIndex != pos.SectionIndex ||
@@ -441,9 +445,10 @@ public sealed class TimelineSchedulerReal : ITimelineScheduler, IDisposable
 
             try
             {
-                _ = _midiEngine?.SendEventAsync(evt);
+                _ = _midiEngine?.SendEventAsync(evt, profiles);
                 _log.Debug(LogSource.EngineReal,
-                    $"[Scheduler] Trigger MidiEvent {evt.Type} ch.{evt.Channel} at {pos}");
+                    $"[Scheduler] Trigger MidiEvent {evt.Type} " +
+                    $"profiles=[{string.Join(",", evt.ProfileIds)}] at {pos}");
             }
             catch (Exception ex)
             {

@@ -35,6 +35,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
 
     private readonly IAudioEngine? _audioEngine;
     private readonly IMidiEngine? _midiEngine;
+    private readonly IProjectStore? _projectStore;
 
     private Song? _song;
     private int _sectionIndex;
@@ -61,12 +62,14 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
         ILogService log,
         Func<bool>? hasActiveVoices = null,
         IAudioEngine? audioEngine = null,
-        IMidiEngine? midiEngine = null)
+        IMidiEngine? midiEngine = null,
+        IProjectStore? projectStore = null)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _hasActiveVoices = hasActiveVoices ?? (() => false);
         _audioEngine = audioEngine;
         _midiEngine = midiEngine;
+        _projectStore = projectStore;
         _timer = new Timer { AutoReset = false }; // intervalle recalculé à chaque tick
         _timer.Elapsed += OnTimerElapsed;
     }
@@ -347,6 +350,7 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
         }
 
         // MidiEvents
+        var profiles = _projectStore?.GetSettings().MidiProfiles ?? [];
         foreach (var evt in song.MidiEvents)
         {
             if (evt.Position.SectionIndex != pos.SectionIndex ||
@@ -356,9 +360,10 @@ public sealed class TimelineSchedulerMock : ITimelineScheduler, IDisposable
 
             try
             {
-                _ = _midiEngine?.SendEventAsync(evt);
+                _ = _midiEngine?.SendEventAsync(evt, profiles);
                 _log.Debug(LogSource.EngineMock,
-                    $"[Scheduler] Trigger MidiEvent {evt.Type} ch.{evt.Channel} " +
+                    $"[Scheduler] Trigger MidiEvent {evt.Type} " +
+                    $"profiles=[{string.Join(",", evt.ProfileIds)}] " +
                     $"at {pos.SectionIndex}:{pos.Bar}:{pos.Beat}");
             }
             catch (InvalidOperationException ex)

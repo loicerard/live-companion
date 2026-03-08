@@ -461,17 +461,42 @@
                 <TabItem Header="MIDI">
                     <DockPanel Margin="0,8,0,0">
                         <Border DockPanel.Dock="Top" Style="{StaticResource CardStyle}" Padding="20,8">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="+ Ajouter"
-                                        Command="{Binding AddMidiEventCommand}"
-                                        Style="{StaticResource ActionButtonStyle}" />
-                                <Button Content="Supprimer"
-                                        Command="{Binding RemoveMidiEventCommand}"
-                                        Style="{StaticResource ActionButtonStyle}"
-                                        Foreground="#F38BA8" />
-                                <Button Content="Test"
-                                        Command="{Binding TestMidiEventCommand}"
-                                        Style="{StaticResource AccentButtonStyle}" />
+                            <StackPanel>
+                                <!-- Profile + shortcut toolbar -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,6">
+                                    <TextBlock Text="PROFIL" Foreground="#585B70" FontSize="11" FontWeight="Bold"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ComboBox ItemsSource="{Binding MidiProfiles}"
+                                              SelectedItem="{Binding SelectedMidiProfile}"
+                                              DisplayMemberPath="Name"
+                                              Style="{StaticResource EditorComboStyle}"
+                                              MinWidth="140"
+                                              Margin="0,0,12,0" />
+                                    <TextBlock Text="RACCOURCI" Foreground="#585B70" FontSize="11" FontWeight="Bold"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ComboBox ItemsSource="{Binding AvailablePresets}"
+                                              SelectedItem="{Binding SelectedMidiPreset}"
+                                              DisplayMemberPath="Name"
+                                              Style="{StaticResource EditorComboStyle}"
+                                              MinWidth="180"
+                                              Margin="0,0,6,0" />
+                                    <Button Content="Appliquer"
+                                            Command="{Binding ApplyMidiPresetCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                </StackPanel>
+                                <!-- Event actions -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="+ Ajouter"
+                                            Command="{Binding AddMidiEventCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                    <Button Content="Supprimer"
+                                            Command="{Binding RemoveMidiEventCommand}"
+                                            Style="{StaticResource ActionButtonStyle}"
+                                            Foreground="#F38BA8" />
+                                    <Button Content="Test"
+                                            Command="{Binding TestMidiEventCommand}"
+                                            Style="{StaticResource AccentButtonStyle}" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -524,23 +549,19 @@
                                                   MinWidth="160"
                                                   Margin="0,0,0,12" />
 
-                                        <!-- Device Out -->
-                                        <TextBlock Text="DEVICE MIDI OUT" Style="{StaticResource SectionHeader}" />
-                                        <ComboBox ItemsSource="{Binding DataContext.AvailableMidiPorts,
-                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                  SelectedItem="{Binding DeviceOut}"
-                                                  Style="{StaticResource EditorComboStyle}"
-                                                  MinWidth="200"
-                                                  Margin="0,0,0,12" />
-
-                                        <!-- Channel -->
-                                        <TextBlock Text="CANAL MIDI (1-16)" Style="{StaticResource SectionHeader}" />
-                                        <TextBox Text="{Binding Channel,
-                                                        UpdateSourceTrigger=LostFocus,
-                                                        ValidatesOnNotifyDataErrors=True}"
-                                                 Style="{StaticResource EditorTextBoxStyle}"
-                                                 Width="80" HorizontalAlignment="Left"
-                                                 Margin="0,0,0,12" />
+                                        <!-- Périphériques (multi-select) -->
+                                        <TextBlock Text="PÉRIPHÉRIQUES" Style="{StaticResource SectionHeader}" />
+                                        <ItemsControl ItemsSource="{Binding ProfileSelections}"
+                                                      Margin="0,0,0,12">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected}"
+                                                              Content="{Binding DisplayName}"
+                                                              Foreground="#CDD6F4"
+                                                              Margin="0,2" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
 
                                         <!-- Data1 -->
                                         <TextBlock Text="DATA 1 (0-127)" Style="{StaticResource SectionHeader}" />
