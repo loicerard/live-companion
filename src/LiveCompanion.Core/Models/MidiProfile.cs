@@ -14,6 +14,9 @@ public class MidiProfile
     /// <summary>Port MIDI de sortie associé à cet appareil (ex : "MIDI OUT 3").</summary>
     public string? DeviceOut { get; set; }
 
+    /// <summary>Canal MIDI par défaut pour cet appareil (1–16).</summary>
+    public int DefaultChannel { get; set; } = 1;
+
     /// <summary>Raccourcis MIDI associés à cet appareil.</summary>
     public List<MidiPreset> Presets { get; set; } = [];
 }

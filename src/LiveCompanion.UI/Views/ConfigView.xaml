@@ -248,6 +248,29 @@
                                   Style="{StaticResource ConfigComboStyle}" />
                     </Grid>
 
+                    <!-- Default channel -->
+                    <Grid Margin="0,4">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedMidiProfile}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Canal (1-16)"
+                                   Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding SelectedMidiProfile.DefaultChannel, UpdateSourceTrigger=LostFocus}"
+                                 Style="{StaticResource EditorTextBoxStyle}" />
+                    </Grid>
+
                     <!-- Preset list for selected profile -->
                     <StackPanel>
                         <StackPanel.Style>

@@ -487,9 +487,14 @@ public partial class EditorViewModel : ViewModelBase
         SelectedMidiEvent.Data1 = SelectedMidiPreset.Data1;
         SelectedMidiEvent.Data2 = SelectedMidiPreset.Data2;
 
-        // Pré-remplir le port MIDI si le profil en a un
-        if (!string.IsNullOrEmpty(SelectedMidiProfile?.DeviceOut))
-            SelectedMidiEvent.DeviceOut = SelectedMidiProfile.DeviceOut;
+        // Pré-remplir port et canal depuis le profil
+        if (SelectedMidiProfile is not null)
+        {
+            if (!string.IsNullOrEmpty(SelectedMidiProfile.DeviceOut))
+                SelectedMidiEvent.DeviceOut = SelectedMidiProfile.DeviceOut;
+
+            SelectedMidiEvent.Channel = SelectedMidiProfile.DefaultChannel;
+        }
 
         StatusMessage = $"Raccourci \"{SelectedMidiPreset.Name}\" appliqué.";
     }
