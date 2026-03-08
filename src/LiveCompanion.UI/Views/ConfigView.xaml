@@ -410,6 +410,119 @@
                 </StackPanel>
             </Border>
 
+
+            <!-- ============================================================ -->
+            <!-- MIDI INPUT SECTION                                           -->
+            <!-- ============================================================ -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="MIDI INPUT — CONTRÔLE TRANSPORT"
+                               Style="{StaticResource SectionHeader}" />
+
+                    <TextBlock Text="Assignez des messages MIDI (CC ou Note) pour contrôler Play, Stop, Next et Previous."
+                               Foreground="#A6ADC8"
+                               FontSize="13"
+                               Margin="0,0,0,8" />
+
+                    <!-- Port MIDI IN -->
+                    <Grid Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Port MIDI IN"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding AvailableMidiInputPorts}"
+                                  SelectedItem="{Binding SelectedMidiInputPort}"
+                                  Style="{StaticResource ConfigComboStyle}" />
+                    </Grid>
+
+                    <!-- Mappings transport -->
+                    <TextBlock Text="Mappings"
+                               Foreground="#A6ADC8"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Margin="0,12,0,6" />
+
+                    <ItemsControl ItemsSource="{Binding TransportMappings}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Action label -->
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding ActionLabel}"
+                                               Foreground="#CDD6F4"
+                                               FontSize="13"
+                                               VerticalAlignment="Center" />
+
+                                    <!-- Current mapping display -->
+                                    <Border Grid.Column="1"
+                                            Background="#262637"
+                                            CornerRadius="6"
+                                            Padding="10,5"
+                                            Margin="0,0,8,0">
+                                        <TextBlock Text="{Binding DisplayText}"
+                                                   FontFamily="Consolas"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#A6E3A1" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAssigned}" Value="False">
+                                                            <Setter Property="Foreground" Value="#45475A" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+
+                                    <!-- Learn button -->
+                                    <Button Grid.Column="2"
+                                            Content="Learn"
+                                            Command="{Binding DataContext.StartMidiLearnCommand,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource ActionButtonStyle}"
+                                            Margin="0,0,4,0" />
+
+                                    <!-- Clear button -->
+                                    <Button Grid.Column="3"
+                                            Content="✕"
+                                            Command="{Binding DataContext.ClearMidiMappingCommand,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource ActionButtonStyle}"
+                                            Foreground="#F38BA8"
+                                            ToolTip="Effacer ce mapping" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Apply button -->
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Appliquer MIDI IN"
+                                Command="{Binding ApplyMidiInputConfigCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+                    </StackPanel>
+
+                    <!-- Status -->
+                    <TextBlock Text="{Binding MidiInputStatusMessage}"
+                               Foreground="#89B4FA"
+                               FontSize="12"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

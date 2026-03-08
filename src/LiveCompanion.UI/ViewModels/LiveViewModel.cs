@@ -16,6 +16,7 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     private readonly ILiveModeGuard _liveModeGuard;
     private readonly IAudioMeterProvider _meterProvider;
     private readonly IAudioMixerProvider _mixerProvider;
+    private readonly IMidiInputService _midiInput;
     private readonly DispatcherTimer _meterTimer;
 
     private Song? _song;
@@ -109,7 +110,8 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         IProjectStore projectStore,
         ILiveModeGuard liveModeGuard,
         IAudioMeterProvider meterProvider,
-        IAudioMixerProvider mixerProvider)
+        IAudioMixerProvider mixerProvider,
+        IMidiInputService midiInput)
     {
         _transport = transport;
         _scheduler = scheduler;
@@ -117,10 +119,12 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         _liveModeGuard = liveModeGuard;
         _meterProvider = meterProvider;
         _mixerProvider = mixerProvider;
+        _midiInput = midiInput;
 
         _transport.StateChanged += OnTransportStateChanged;
         _scheduler.PositionChanged += OnPositionChanged;
         _scheduler.SectionChanged += OnSectionChanged;
+        _midiInput.TransportActionReceived += OnMidiTransportAction;
 
         _meterTimer = new DispatcherTimer
         {
@@ -135,6 +139,16 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
             MixerChannels.Add(new BusMixerChannelViewModel(busName, _mixerProvider));
 
         RefreshSongList();
+        StartMidiInput();
+    }
+
+    private void StartMidiInput()
+    {
+        var settings = _projectStore.GetSettings();
+        var midiConfig = settings.MidiConfig;
+
+        if (midiConfig is { InputPort: { } port } && !string.IsNullOrWhiteSpace(port))
+            _midiInput.Start(port, midiConfig.TransportMappings);
     }
 
     private void RefreshSongList()
@@ -278,6 +292,34 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
     // Gestionnaires d'événements (dispatch UI thread)
     // ------------------------------------------------------------------ //
 
+    private void OnMidiTransportAction(object? sender, TransportAction action)
+    {
+        Application.Current?.Dispatcher.InvokeAsync(async () =>
+        {
+            switch (action)
+            {
+                case TransportAction.Play:
+                    await PlayAsync();
+                    break;
+                case TransportAction.Stop:
+                    await StopAsync();
+                    break;
+                case TransportAction.NextSection:
+                    if (CanTransition)
+                        await NextSectionAsync();
+                    break;
+                case TransportAction.PreviousSong:
+                    if (CanPreviousSong())
+                        await PreviousSongAsync();
+                    break;
+                case TransportAction.NextSong:
+                    if (CanNextSong())
+                        await NextSongAsync();
+                    break;
+            }
+        });
+    }
+
     private void OnTransportStateChanged(object? sender, TransportState state)
     {
         Application.Current?.Dispatcher.Invoke(() =>
@@ -346,5 +388,7 @@ public partial class LiveViewModel : ViewModelBase, IDisposable
         _transport.StateChanged -= OnTransportStateChanged;
         _scheduler.PositionChanged -= OnPositionChanged;
         _scheduler.SectionChanged -= OnSectionChanged;
+        _midiInput.TransportActionReceived -= OnMidiTransportAction;
+        _midiInput.Stop();
     }
 }

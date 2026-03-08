@@ -10,6 +10,7 @@ public partial class ConfigViewModel : ViewModelBase
 {
     private readonly IAudioEngine _audioEngine;
     private readonly IMidiEngine _midiEngine;
+    private readonly IMidiInputService _midiInput;
     private readonly IProjectStore _store;
 
     // ------------------------------------------------------------------ //
@@ -99,14 +100,39 @@ public partial class ConfigViewModel : ViewModelBase
     private string? _profileStatusMessage;
 
     // ------------------------------------------------------------------ //
+    // MIDI Input (contrôle transport)
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Ports MIDI IN disponibles.</summary>
+    public IReadOnlyList<string> AvailableMidiInputPorts => _midiInput.GetAvailableInputPorts();
+
+    [ObservableProperty]
+    private string? _selectedMidiInputPort;
+
+    /// <summary>Mappings transport éditables (un par action).</summary>
+    public ObservableCollection<MidiTransportMapItem> TransportMappings { get; } = [];
+
+    /// <summary>Action en cours de MIDI Learn. Null = pas en mode Learn.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLearning))]
+    private TransportAction? _learningAction;
+
+    public bool IsLearning => LearningAction.HasValue;
+
+    [ObservableProperty]
+    private string? _midiInputStatusMessage;
+
+    // ------------------------------------------------------------------ //
     // Constructeur
     // ------------------------------------------------------------------ //
 
-    public ConfigViewModel(IAudioEngine audioEngine, IMidiEngine midiEngine, IProjectStore store)
+    public ConfigViewModel(IAudioEngine audioEngine, IMidiEngine midiEngine, IMidiInputService midiInput, IProjectStore store)
     {
         _audioEngine = audioEngine;
         _midiEngine = midiEngine;
+        _midiInput = midiInput;
         _store = store;
+        _midiInput.MidiLearnReceived += OnMidiLearnReceived;
 
         // Charger les listes depuis les moteurs
         AvailableDrivers = _audioEngine.GetAvailableDrivers();
@@ -138,6 +164,10 @@ public partial class ConfigViewModel : ViewModelBase
         // Charger les profils MIDI
         foreach (var profile in _store.GetSettings().MidiProfiles)
             MidiProfiles.Add(profile);
+
+        // Initialiser les 5 mappings transport (un par action)
+        foreach (TransportAction action in Enum.GetValues<TransportAction>())
+            TransportMappings.Add(new MidiTransportMapItem(action));
 
         // Restaurer la configuration sauvegardée
         RestoreSavedSettings();
@@ -188,11 +218,20 @@ public partial class ConfigViewModel : ViewModelBase
                 SelectedBufferSize = audio.BufferSize;
         }
 
-        // MIDI
+        // MIDI OUT
         if (settings.MidiConfig is { } midi)
         {
             foreach (var port in AvailableMidiPorts)
                 port.IsSelected = midi.SelectedPorts.Contains(port.PortName);
+
+            // MIDI IN — port et mappings transport
+            SelectedMidiInputPort = midi.InputPort;
+            foreach (var savedMap in midi.TransportMappings)
+            {
+                var item = TransportMappings.FirstOrDefault(m => m.Action == savedMap.Action);
+                if (item is not null)
+                    item.ApplyMap(savedMap);
+            }
         }
     }
 
@@ -225,6 +264,13 @@ public partial class ConfigViewModel : ViewModelBase
         {
             await _midiEngine.InitializeAsync(midi);
             MidiStatusMessage = $"MIDI restauré — {midi.SelectedPorts.Count} port(s)";
+        }
+
+        if (settings.MidiConfig is { InputPort: { } inputPort } midiIn
+            && !string.IsNullOrWhiteSpace(inputPort))
+        {
+            _midiInput.Start(inputPort, midiIn.TransportMappings);
+            MidiInputStatusMessage = $"MIDI IN restauré — {inputPort}";
         }
     }
 
@@ -444,6 +490,76 @@ public partial class ConfigViewModel : ViewModelBase
         ProfileStatusMessage = $"Raccourci \"{name}\" supprimé.";
     }
 
+    // ------------------------------------------------------------------ //
+    // MIDI Input — Commandes
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private void StartMidiLearn(MidiTransportMapItem item)
+    {
+        // Annuler le Learn précédent si nécessaire
+        if (LearningAction.HasValue)
+            _midiInput.StopLearn();
+
+        LearningAction = item.Action;
+        _midiInput.StartLearn();
+        MidiInputStatusMessage = $"En attente d'un message MIDI pour \"{item.ActionLabel}\"…";
+    }
+
+    [RelayCommand]
+    private void ClearMidiMapping(MidiTransportMapItem item)
+    {
+        item.Clear();
+        MidiInputStatusMessage = $"Mapping \"{item.ActionLabel}\" effacé.";
+    }
+
+    [RelayCommand]
+    private void ApplyMidiInputConfig()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedMidiInputPort))
+        {
+            MidiInputStatusMessage = "Sélectionnez un port MIDI IN.";
+            return;
+        }
+
+        var mappings = TransportMappings
+            .Select(m => m.ToTransportMap())
+            .ToList();
+
+        _midiInput.Stop();
+        _midiInput.Start(SelectedMidiInputPort, mappings);
+
+        // Persister
+        var settings = _store.GetSettings();
+        var existingConfig = settings.MidiConfig ?? new MidiConfig();
+        settings.MidiConfig = new MidiConfig
+        {
+            SelectedPorts = existingConfig.SelectedPorts,
+            InputPort = SelectedMidiInputPort,
+            TransportMappings = mappings,
+        };
+        _store.SaveSettings(settings);
+
+        MidiInputStatusMessage = $"MIDI IN appliqué — {SelectedMidiInputPort}, " +
+            $"{mappings.Count(m => m.IsAssigned)} mapping(s) actif(s)";
+    }
+
+    private void OnMidiLearnReceived(object? sender, MidiLearnResult result)
+    {
+        if (!LearningAction.HasValue) return;
+
+        var item = TransportMappings.FirstOrDefault(m => m.Action == LearningAction.Value);
+        if (item is not null)
+        {
+            item.EventType = result.EventType;
+            item.Channel = result.Channel;
+            item.Data1 = result.Data1;
+            MidiInputStatusMessage = $"Assigné : \"{item.ActionLabel}\" → {item.DisplayText}";
+        }
+
+        LearningAction = null;
+    }
+
     private void PersistProfiles()
     {
         var settings = _store.GetSettings();
@@ -478,4 +594,69 @@ public partial class MidiPortItem : ObservableObject
 
     [ObservableProperty]
     private bool _isSelected;
+}
+
+/// <summary>
+/// Représente un mapping MIDI IN → action transport, éditable dans l'UI.
+/// </summary>
+public partial class MidiTransportMapItem : ObservableObject
+{
+    public TransportAction Action { get; }
+
+    public string ActionLabel => Action switch
+    {
+        TransportAction.Play => "Play",
+        TransportAction.Stop => "Stop",
+        TransportAction.NextSection => "Section suivante",
+        TransportAction.PreviousSong => "Morceau précédent",
+        TransportAction.NextSong => "Morceau suivant",
+        _ => Action.ToString(),
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayText))]
+    [NotifyPropertyChangedFor(nameof(IsAssigned))]
+    private MidiEventType? _eventType;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayText))]
+    private int? _channel;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayText))]
+    [NotifyPropertyChangedFor(nameof(IsAssigned))]
+    private int? _data1;
+
+    public bool IsAssigned => EventType.HasValue && Data1.HasValue;
+
+    public string DisplayText => IsAssigned
+        ? $"{EventType} #{Data1}{(Channel.HasValue ? $" ch.{Channel}" : "")}"
+        : "—";
+
+    public MidiTransportMapItem(TransportAction action)
+    {
+        Action = action;
+    }
+
+    public void ApplyMap(MidiTransportMap map)
+    {
+        EventType = map.EventType;
+        Channel = map.Channel;
+        Data1 = map.Data1;
+    }
+
+    public void Clear()
+    {
+        EventType = null;
+        Channel = null;
+        Data1 = null;
+    }
+
+    public MidiTransportMap ToTransportMap() => new()
+    {
+        Action = Action,
+        EventType = EventType,
+        Channel = Channel,
+        Data1 = Data1,
+    };
 }

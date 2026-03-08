@@ -98,6 +98,7 @@ public static class ServiceCollectionExtensions
             => sp.GetRequiredService<AudioEngineMock>());
 
         services.AddSingleton<IMidiEngine, MidiEngineMock>();
+        services.AddSingleton<IMidiInputService, MidiInputServiceMock>();
         services.AddSingleton<ITransportController, TransportControllerMock>();
         services.AddSingleton<IProjectStore, ProjectStoreMock>();
 
@@ -144,6 +145,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<MidiEngineReal>();
         services.AddSingleton<IMidiEngine>(sp
             => sp.GetRequiredService<MidiEngineReal>());
+        services.AddSingleton<IMidiInputService, MidiInputServiceReal>();
         services.AddSingleton<ITransportController, TransportControllerReal>();
         services.AddSingleton<IProjectStore>(sp =>
         {
