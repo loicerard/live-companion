@@ -77,6 +77,9 @@ public partial class ConfigViewModel : ViewModelBase
     [ObservableProperty]
     private MidiPreset? _selectedPreset;
 
+    /// <summary>Noms des ports MIDI disponibles pour l'association au profil.</summary>
+    public IReadOnlyList<string> AvailableMidiPortNames => _midiEngine.GetAvailablePorts();
+
     /// <summary>Types d'événements MIDI pour le ComboBox d'ajout de raccourci.</summary>
     public IReadOnlyList<MidiEventType> AvailableMidiEventTypes { get; } = Enum.GetValues<MidiEventType>();
 

@@ -212,7 +212,7 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </Grid.Style>>
+                        </Grid.Style>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="140" />
                             <ColumnDefinition Width="*" />
@@ -222,6 +222,30 @@
                         <TextBox Grid.Column="1"
                                  Text="{Binding SelectedMidiProfile.Name, UpdateSourceTrigger=LostFocus}"
                                  Style="{StaticResource EditorTextBoxStyle}" />
+                    </Grid>
+
+                    <!-- Profile port assignment -->
+                    <Grid Margin="0,4">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedMidiProfile}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Port MIDI"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding AvailableMidiPortNames}"
+                                  SelectedItem="{Binding SelectedMidiProfile.DeviceOut}"
+                                  Style="{StaticResource ConfigComboStyle}" />
                     </Grid>
 
                     <!-- Preset list for selected profile -->
@@ -235,7 +259,7 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </StackPanel.Style>>
+                        </StackPanel.Style>
                         <TextBlock Text="Raccourcis"
                                    Foreground="#A6ADC8"
                                    FontSize="13"

@@ -11,6 +11,9 @@ public class MidiProfile
     /// <summary>Nom du profil / appareil (ex : "Quad Cortex").</summary>
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>Port MIDI de sortie associé à cet appareil (ex : "MIDI OUT 3").</summary>
+    public string? DeviceOut { get; set; }
+
     /// <summary>Raccourcis MIDI associés à cet appareil.</summary>
     public List<MidiPreset> Presets { get; set; } = [];
 }
