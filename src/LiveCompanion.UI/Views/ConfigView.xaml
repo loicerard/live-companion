@@ -393,18 +393,8 @@
                                     Command="{Binding AddPresetToProfileCommand}"
                                     Style="{StaticResource ActionButtonStyle}" />
                             <Button Content="Modifier raccourci"
-                                    Command="{Binding UpdateSelectedPresetCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedPreset}" Value="{x:Null}">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
+                                    Command="{Binding UpdateSelectedPresetCommand}"
+                                    Style="{StaticResource ActionButtonStyle}" />
                             <Button Content="Suppr. raccourci"
                                     Command="{Binding DeletePresetFromProfileCommand}"
                                     Style="{StaticResource ActionButtonStyle}"
