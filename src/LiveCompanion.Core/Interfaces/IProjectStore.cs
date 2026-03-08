@@ -79,6 +79,16 @@ public interface IProjectStore
     Task<LoadResult<IReadOnlyList<Playlist>>> LoadPlaylistsAsync(string path);
 
     // ------------------------------------------------------------------ //
+    // Export / Import centralisé
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Exporte toute la configuration (settings, morceaux, playlists) dans un fichier JSON.</summary>
+    Task<ValidationResult> SaveFullExportAsync(string path);
+
+    /// <summary>Importe toute la configuration depuis un fichier JSON.</summary>
+    Task<LoadResult<FullExport>> LoadFullExportAsync(string path);
+
+    // ------------------------------------------------------------------ //
     // Settings
     // ------------------------------------------------------------------ //
 

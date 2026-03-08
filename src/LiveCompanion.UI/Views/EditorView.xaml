@@ -95,14 +95,6 @@
                                 Command="{Binding SaveSongCommand}"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Margin="12,0,4,0" />
-                        <Button Content="Exporter .json"
-                                Command="{Binding SaveSongToDiskCommand}"
-                                Style="{StaticResource ActionButtonStyle}"
-                                Margin="0" />
-                        <Button Content="Charger .json"
-                                Command="{Binding LoadSongFromDiskCommand}"
-                                Style="{StaticResource ActionButtonStyle}"
-                                Margin="4,0,0,0" />
                     </StackPanel>
                 </Grid>
             </Border>

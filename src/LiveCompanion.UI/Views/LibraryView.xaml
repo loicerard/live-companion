@@ -58,12 +58,6 @@
                     <Button Content="Importer .json"
                             Command="{Binding ImportSongCommand}"
                             Style="{StaticResource ActionButtonStyle}" />
-                    <Button Content="Exporter tout"
-                            Command="{Binding ExportAllSongsCommand}"
-                            Style="{StaticResource ActionButtonStyle}" />
-                    <Button Content="Importer tout"
-                            Command="{Binding ImportAllSongsCommand}"
-                            Style="{StaticResource ActionButtonStyle}" />
                 </WrapPanel>
 
                 <!-- Status -->
@@ -159,12 +153,6 @@
                            Margin="0,4,0,8">
                     <Button Content="Supprimer playlist"
                             Command="{Binding DeletePlaylistCommand}"
-                            Style="{StaticResource ActionButtonStyle}" />
-                    <Button Content="Exporter playlists"
-                            Command="{Binding ExportPlaylistsCommand}"
-                            Style="{StaticResource ActionButtonStyle}" />
-                    <Button Content="Importer playlists"
-                            Command="{Binding ImportPlaylistsCommand}"
                             Style="{StaticResource ActionButtonStyle}" />
                 </WrapPanel>
 

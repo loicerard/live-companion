@@ -410,6 +410,36 @@
                 </StackPanel>
             </Border>
 
+            <!-- ============================================================ -->
+            <!-- EXPORT / IMPORT CENTRALISÉ                                     -->
+            <!-- ============================================================ -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="SAUVEGARDE / RESTAURATION"
+                               Style="{StaticResource SectionHeader}" />
+
+                    <TextBlock Text="Exportez ou importez toute la configuration (paramètres audio/MIDI, profils, morceaux et playlists) en un seul fichier."
+                               Foreground="#A6ADC8"
+                               FontSize="13"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Exporter tout"
+                                Command="{Binding ExportAllConfigCommand}"
+                                Style="{StaticResource AccentButtonStyle}" />
+                        <Button Content="Importer tout"
+                                Command="{Binding ImportAllConfigCommand}"
+                                Style="{StaticResource ActionButtonStyle}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding ExportStatusMessage}"
+                               Foreground="#A6E3A1"
+                               FontSize="12"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

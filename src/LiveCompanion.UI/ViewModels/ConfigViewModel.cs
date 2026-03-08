@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
+using Microsoft.Win32;
 
 namespace LiveCompanion.UI.ViewModels;
 
@@ -449,6 +450,58 @@ public partial class ConfigViewModel : ViewModelBase
         var settings = _store.GetSettings();
         settings.MidiProfiles = MidiProfiles.ToList();
         _store.SaveSettings(settings);
+    }
+
+    // ------------------------------------------------------------------ //
+    // Export / Import centralisé
+    // ------------------------------------------------------------------ //
+
+    [ObservableProperty]
+    private string? _exportStatusMessage;
+
+    [RelayCommand]
+    private async Task ExportAllConfigAsync()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Exporter toute la configuration",
+            Filter = "Fichier JSON|*.json",
+            FileName = "live-companion-export.json",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _store.SaveFullExportAsync(dialog.FileName);
+        ExportStatusMessage = result.IsValid
+            ? $"Configuration exportée → {dialog.FileName}"
+            : $"Erreur : {string.Join(", ", result.Issues.Select(i => i.Message))}";
+    }
+
+    [RelayCommand]
+    private async Task ImportAllConfigAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importer toute la configuration",
+            Filter = "Fichier JSON|*.json|Tous|*.*",
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        var result = await _store.LoadFullExportAsync(dialog.FileName);
+        if (!result.Validation.IsValid)
+        {
+            ExportStatusMessage = $"Erreur : {string.Join(", ", result.Validation.Issues.Select(i => i.Message))}";
+            return;
+        }
+
+        // Restaurer les profils MIDI dans l'UI
+        MidiProfiles.Clear();
+        foreach (var profile in result.Value!.Settings.MidiProfiles)
+            MidiProfiles.Add(profile);
+        SelectedMidiProfile = MidiProfiles.FirstOrDefault();
+
+        ExportStatusMessage = $"Configuration importée — {result.Value.Songs.Count} morceau(x), {result.Value.Playlists.Count} playlist(s)";
     }
 }
 

@@ -404,6 +404,128 @@ public sealed class ProjectStoreReal : IProjectStore
     }
 
     // ------------------------------------------------------------------ //
+    // IProjectStore — Export / Import centralisé
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public async Task<ValidationResult> SaveFullExportAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        List<Song> songs;
+        List<Playlist> playlists;
+        AppSettings settings;
+        lock (_lock)
+        {
+            songs = _songs.Values.ToList();
+            playlists = _playlists.Values.ToList();
+            settings = _settings;
+        }
+
+        var validation = new ValidationResult();
+        foreach (var song in songs)
+            validation.Merge(ModelValidator.ValidateSong(song));
+
+        validation.Merge(ModelValidator.ValidatePlaylists(playlists, songs));
+
+        if (!validation.IsValid)
+        {
+            _log.Warn(LogSource.EngineReal, "[ProjectStore] SaveFullExport annulé — validation échouée");
+            return validation;
+        }
+
+        foreach (var song in songs)
+            song.LastModified = DateTime.UtcNow;
+
+        var export = new FullExport
+        {
+            Settings = settings,
+            Songs = songs,
+            Playlists = playlists,
+        };
+
+        var json = JsonSerializer.Serialize(export, _jsonOptions);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        await File.WriteAllTextAsync(path, json);
+        _log.Debug(LogSource.EngineReal, $"[ProjectStore] SaveFullExport '{path}' ← {songs.Count} morceaux, {playlists.Count} playlists");
+        return validation;
+    }
+
+    /// <inheritdoc/>
+    public async Task<LoadResult<FullExport>> LoadFullExportAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
+
+        if (!File.Exists(path))
+        {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
+            _log.Debug(LogSource.EngineReal, $"[ProjectStore] LoadFullExport '{path}' → not found");
+            return new LoadResult<FullExport>(null, validation);
+        }
+
+        FullExport? export;
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            export = JsonSerializer.Deserialize<FullExport>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé dans '{path}' : {ex.Message}");
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] LoadFullExport '{path}' → JSON invalide : {ex.Message}");
+            return new LoadResult<FullExport>(null, validation);
+        }
+
+        if (export is null)
+        {
+            validation.AddError("json", $"Désérialisation de '{path}' a retourné null.");
+            return new LoadResult<FullExport>(null, validation);
+        }
+
+        // Valider les morceaux
+        foreach (var song in export.Songs)
+        {
+            foreach (var clip in song.AudioClips)
+                clip.MigrateLegacyFields();
+
+            validation.Merge(ModelValidator.ValidateSong(song));
+        }
+
+        if (!validation.IsValid)
+        {
+            _log.Warn(LogSource.EngineReal, $"[ProjectStore] LoadFullExport '{path}' → validation échouée");
+            return new LoadResult<FullExport>(null, validation);
+        }
+
+        // Valider les playlists
+        validation.Merge(ModelValidator.ValidatePlaylists(export.Playlists, export.Songs));
+
+        // Remplacer les données en mémoire
+        lock (_lock)
+        {
+            _songs.Clear();
+            foreach (var song in export.Songs)
+                _songs[song.Id] = song;
+
+            _playlists.Clear();
+            foreach (var pl in export.Playlists)
+                _playlists[pl.Id] = pl;
+
+            _settings = export.Settings;
+        }
+
+        // Persister les settings sur disque
+        SaveSettings(export.Settings);
+
+        _log.Debug(LogSource.EngineReal, $"[ProjectStore] LoadFullExport '{path}' → {export.Songs.Count} morceaux, {export.Playlists.Count} playlists");
+        return new LoadResult<FullExport>(export, validation);
+    }
+
+    // ------------------------------------------------------------------ //
     // IProjectStore — Settings
     // ------------------------------------------------------------------ //
 

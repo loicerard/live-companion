@@ -379,6 +379,113 @@ public sealed class ProjectStoreMock : IProjectStore
     }
 
     // ------------------------------------------------------------------ //
+    // IProjectStore — Export / Import centralisé
+    // ------------------------------------------------------------------ //
+
+    /// <inheritdoc/>
+    public Task<ValidationResult> SaveFullExportAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        List<Song> songs;
+        List<Playlist> playlists;
+        AppSettings settings;
+        lock (_lock)
+        {
+            songs = _songs.Values.ToList();
+            playlists = _playlists.Values.ToList();
+            settings = _settings;
+        }
+
+        var validation = new ValidationResult();
+        foreach (var song in songs)
+            validation.Merge(ModelValidator.ValidateSong(song));
+
+        validation.Merge(ModelValidator.ValidatePlaylists(playlists, songs));
+
+        if (!validation.IsValid)
+            return Task.FromResult(validation);
+
+        var export = new FullExport
+        {
+            Settings = settings,
+            Songs = songs,
+            Playlists = playlists,
+        };
+
+        var json = JsonSerializer.Serialize(export, _jsonOptions);
+        lock (_lock)
+            _store[path] = json;
+
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] SaveFullExport '{path}' ← {songs.Count} morceaux, {playlists.Count} playlists");
+        return Task.FromResult(validation);
+    }
+
+    /// <inheritdoc/>
+    public Task<LoadResult<FullExport>> LoadFullExportAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var validation = new ValidationResult();
+
+        string? json;
+        lock (_lock)
+            _store.TryGetValue(path, out json);
+
+        if (json is null)
+        {
+            validation.AddError("path", $"Fichier introuvable : '{path}'.");
+            return Task.FromResult(new LoadResult<FullExport>(null, validation));
+        }
+
+        FullExport? export;
+        try
+        {
+            export = JsonSerializer.Deserialize<FullExport>(json, _jsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            validation.AddError("json", $"JSON malformé : {ex.Message}");
+            return Task.FromResult(new LoadResult<FullExport>(null, validation));
+        }
+
+        if (export is null)
+        {
+            validation.AddError("json", "Désérialisation a retourné null.");
+            return Task.FromResult(new LoadResult<FullExport>(null, validation));
+        }
+
+        foreach (var song in export.Songs)
+        {
+            foreach (var clip in song.AudioClips)
+                clip.MigrateLegacyFields();
+
+            validation.Merge(ModelValidator.ValidateSong(song));
+        }
+
+        if (!validation.IsValid)
+            return Task.FromResult(new LoadResult<FullExport>(null, validation));
+
+        validation.Merge(ModelValidator.ValidatePlaylists(export.Playlists, export.Songs));
+
+        lock (_lock)
+        {
+            _songs.Clear();
+            foreach (var song in export.Songs)
+                _songs[song.Id] = song;
+
+            _playlists.Clear();
+            foreach (var pl in export.Playlists)
+                _playlists[pl.Id] = pl;
+
+            _settings = export.Settings;
+        }
+
+        _log.Debug(LogSource.EngineMock, $"[ProjectStore] LoadFullExport '{path}' → {export.Songs.Count} morceaux, {export.Playlists.Count} playlists");
+        return Task.FromResult(new LoadResult<FullExport>(export, validation));
+    }
+
+    // ------------------------------------------------------------------ //
     // IProjectStore — Settings
     // ------------------------------------------------------------------ //
 
