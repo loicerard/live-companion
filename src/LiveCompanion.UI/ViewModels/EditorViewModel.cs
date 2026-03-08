@@ -76,10 +76,16 @@ public partial class EditorViewModel : ViewModelBase
     public IReadOnlyList<string> AvailableMidiPorts => _midiEngine.GetAvailablePorts();
 
     // ------------------------------------------------------------------ //
-    // Presets MIDI (#raccourcis)
+    // Profils MIDI (raccourcis par appareil)
     // ------------------------------------------------------------------ //
 
-    public ObservableCollection<MidiPreset> MidiPresets { get; } = [];
+    public ObservableCollection<MidiProfile> MidiProfiles { get; } = [];
+
+    [ObservableProperty]
+    private MidiProfile? _selectedMidiProfile;
+
+    /// <summary>Raccourcis du profil sélectionné.</summary>
+    public ObservableCollection<MidiPreset> AvailablePresets { get; } = [];
 
     [ObservableProperty]
     private MidiPreset? _selectedMidiPreset;
@@ -113,13 +119,41 @@ public partial class EditorViewModel : ViewModelBase
         _log = log;
         _liveModeGuard = liveModeGuard;
         RefreshSongList();
-        LoadMidiPresets();
+        LoadMidiProfiles();
     }
 
-    private void LoadMidiPresets()
+    private void LoadMidiProfiles()
     {
-        foreach (var preset in _projectStore.GetSettings().MidiPresets)
-            MidiPresets.Add(preset);
+        MidiProfiles.Clear();
+        foreach (var profile in _projectStore.GetSettings().MidiProfiles)
+            MidiProfiles.Add(profile);
+
+        if (MidiProfiles.Count > 0)
+            SelectedMidiProfile = MidiProfiles[0];
+    }
+
+    partial void OnSelectedMidiProfileChanged(MidiProfile? value)
+    {
+        AvailablePresets.Clear();
+        SelectedMidiPreset = null;
+
+        if (value is null) return;
+
+        foreach (var preset in value.Presets)
+            AvailablePresets.Add(preset);
+    }
+
+    /// <summary>
+    /// Recharge les profils MIDI depuis les settings (appelé quand on revient de Config).
+    /// </summary>
+    public void RefreshMidiProfiles()
+    {
+        var previousProfileId = SelectedMidiProfile?.Id;
+        LoadMidiProfiles();
+
+        // Tenter de re-sélectionner le même profil
+        if (previousProfileId is not null)
+            SelectedMidiProfile = MidiProfiles.FirstOrDefault(p => p.Id == previousProfileId);
     }
 
     private void RefreshSongList()
@@ -441,7 +475,7 @@ public partial class EditorViewModel : ViewModelBase
     }
 
     // ------------------------------------------------------------------ //
-    // Commandes — Presets MIDI
+    // Commandes — Raccourcis MIDI (depuis profils)
     // ------------------------------------------------------------------ //
 
     [RelayCommand]
@@ -450,51 +484,9 @@ public partial class EditorViewModel : ViewModelBase
         if (SelectedMidiEvent is null || SelectedMidiPreset is null) return;
 
         SelectedMidiEvent.Type = SelectedMidiPreset.Type;
-        SelectedMidiEvent.Channel = SelectedMidiPreset.Channel;
         SelectedMidiEvent.Data1 = SelectedMidiPreset.Data1;
         SelectedMidiEvent.Data2 = SelectedMidiPreset.Data2;
-        StatusMessage = $"Preset \"{SelectedMidiPreset.Name}\" appliqué.";
-    }
-
-    [RelayCommand]
-    private void SaveMidiEventAsPreset()
-    {
-        if (SelectedMidiEvent is null) return;
-
-        SelectedMidiEvent.ApplyToModel();
-
-        var preset = new MidiPreset
-        {
-            Name = $"Preset {MidiPresets.Count + 1}",
-            Type = SelectedMidiEvent.Type,
-            Channel = SelectedMidiEvent.Channel,
-            Data1 = SelectedMidiEvent.Data1,
-            Data2 = SelectedMidiEvent.Data2,
-        };
-
-        MidiPresets.Add(preset);
-        SelectedMidiPreset = preset;
-        PersistPresets();
-        StatusMessage = $"Preset \"{preset.Name}\" créé.";
-    }
-
-    [RelayCommand]
-    private void DeleteMidiPreset()
-    {
-        if (SelectedMidiPreset is null) return;
-
-        var name = SelectedMidiPreset.Name;
-        MidiPresets.Remove(SelectedMidiPreset);
-        SelectedMidiPreset = null;
-        PersistPresets();
-        StatusMessage = $"Preset \"{name}\" supprimé.";
-    }
-
-    private void PersistPresets()
-    {
-        var settings = _projectStore.GetSettings();
-        settings.MidiPresets = MidiPresets.ToList();
-        _projectStore.SaveSettings(settings);
+        StatusMessage = $"Raccourci \"{SelectedMidiPreset.Name}\" appliqué.";
     }
 
     // ------------------------------------------------------------------ //

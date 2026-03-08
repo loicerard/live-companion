@@ -462,11 +462,19 @@
                     <DockPanel Margin="0,8,0,0">
                         <Border DockPanel.Dock="Top" Style="{StaticResource CardStyle}" Padding="20,8">
                             <StackPanel>
-                                <!-- Preset toolbar -->
+                                <!-- Profile + shortcut toolbar -->
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,6">
-                                    <TextBlock Text="PRESET" Foreground="#585B70" FontSize="11" FontWeight="Bold"
+                                    <TextBlock Text="PROFIL" Foreground="#585B70" FontSize="11" FontWeight="Bold"
                                                VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <ComboBox ItemsSource="{Binding MidiPresets}"
+                                    <ComboBox ItemsSource="{Binding MidiProfiles}"
+                                              SelectedItem="{Binding SelectedMidiProfile}"
+                                              DisplayMemberPath="Name"
+                                              Style="{StaticResource EditorComboStyle}"
+                                              MinWidth="140"
+                                              Margin="0,0,12,0" />
+                                    <TextBlock Text="RACCOURCI" Foreground="#585B70" FontSize="11" FontWeight="Bold"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ComboBox ItemsSource="{Binding AvailablePresets}"
                                               SelectedItem="{Binding SelectedMidiPreset}"
                                               DisplayMemberPath="Name"
                                               Style="{StaticResource EditorComboStyle}"
@@ -475,13 +483,6 @@
                                     <Button Content="Appliquer"
                                             Command="{Binding ApplyMidiPresetCommand}"
                                             Style="{StaticResource ActionButtonStyle}" />
-                                    <Button Content="Sauver preset"
-                                            Command="{Binding SaveMidiEventAsPresetCommand}"
-                                            Style="{StaticResource ActionButtonStyle}" />
-                                    <Button Content="Suppr. preset"
-                                            Command="{Binding DeleteMidiPresetCommand}"
-                                            Style="{StaticResource ActionButtonStyle}"
-                                            Foreground="#F38BA8" />
                                 </StackPanel>
                                 <!-- Event actions -->
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

@@ -163,6 +163,203 @@
                 </StackPanel>
             </Border>
 
+            <!-- ============================================================ -->
+            <!-- MIDI PROFILES SECTION                                          -->
+            <!-- ============================================================ -->
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="PROFILS MIDI"
+                               Style="{StaticResource SectionHeader}" />
+
+                    <TextBlock Text="Créez des profils par appareil avec des raccourcis MIDI prédéfinis."
+                               Foreground="#A6ADC8"
+                               FontSize="13"
+                               Margin="0,0,0,8" />
+
+                    <!-- Profile selection + add/delete -->
+                    <Grid Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Profil"
+                                   Style="{StaticResource FieldLabel}" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding MidiProfiles}"
+                                  SelectedItem="{Binding SelectedMidiProfile}"
+                                  DisplayMemberPath="Name"
+                                  Style="{StaticResource ConfigComboStyle}" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="6,0,0,0">
+                            <Button Content="+ Ajouter"
+                                    Command="{Binding AddMidiProfileCommand}"
+                                    Style="{StaticResource ActionButtonStyle}" />
+                            <Button Content="Supprimer"
+                                    Command="{Binding DeleteMidiProfileCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Foreground="#F38BA8" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Profile name edit -->
+                    <Grid Margin="0,4">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedMidiProfile}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Nom"
+                                   Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding SelectedMidiProfile.Name, UpdateSourceTrigger=LostFocus}"
+                                 Style="{StaticResource EditorTextBoxStyle}" />
+                    </Grid>
+
+                    <!-- Preset list for selected profile -->
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedMidiProfile}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>>
+                        <TextBlock Text="Raccourcis"
+                                   Foreground="#A6ADC8"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Margin="0,12,0,6" />
+
+                        <ListBox ItemsSource="{Binding CurrentProfilePresets}"
+                                 SelectedItem="{Binding SelectedPreset}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 MaxHeight="200">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Foreground="#CDD6F4" FontSize="13">
+                                            <Run Text="{Binding Name}" FontWeight="SemiBold" />
+                                            <Run Text=" — " Foreground="#585B70" />
+                                            <Run Text="{Binding Type}" Foreground="#89B4FA" />
+                                            <Run Text=" D1=" Foreground="#585B70" />
+                                            <Run Text="{Binding Data1}" Foreground="#A6E3A1" />
+                                            <Run Text=" D2=" Foreground="#585B70" />
+                                            <Run Text="{Binding Data2}" Foreground="#A6E3A1" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Foreground" Value="#CDD6F4" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Padding" Value="8,4" />
+                                    <Setter Property="Margin" Value="0,1" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        Padding="{TemplateBinding Padding}"
+                                                        CornerRadius="4">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#313244" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#2A2B3D" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                        <!-- Add preset form -->
+                        <TextBlock Text="Ajouter un raccourci"
+                                   Foreground="#A6ADC8"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Margin="0,12,0,6" />
+
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Nom"
+                                       Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding NewPresetName, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource EditorTextBoxStyle}" />
+                        </Grid>
+
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Type"
+                                       Style="{StaticResource FieldLabel}" />
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding AvailableMidiEventTypes}"
+                                      SelectedItem="{Binding NewPresetType}"
+                                      Style="{StaticResource ConfigComboStyle}" />
+                        </Grid>
+
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="80" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Data1 / Data2"
+                                       Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding NewPresetData1, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource EditorTextBoxStyle}" />
+                            <TextBox Grid.Column="3"
+                                     Text="{Binding NewPresetData2, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource EditorTextBoxStyle}" />
+                        </Grid>
+
+                        <!-- Preset buttons -->
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="+ Ajouter raccourci"
+                                    Command="{Binding AddPresetToProfileCommand}"
+                                    Style="{StaticResource ActionButtonStyle}" />
+                            <Button Content="Suppr. raccourci"
+                                    Command="{Binding DeletePresetFromProfileCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Foreground="#F38BA8" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Profile status -->
+                    <TextBlock Text="{Binding ProfileStatusMessage}"
+                               Foreground="#A6E3A1"
+                               FontSize="12"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

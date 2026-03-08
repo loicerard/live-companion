@@ -17,6 +17,6 @@ public class AppSettings
     /// </summary>
     public int CountdownBars { get; set; } = 3;
 
-    /// <summary>Presets MIDI réutilisables (raccourcis de configuration).</summary>
-    public List<MidiPreset> MidiPresets { get; set; } = [];
+    /// <summary>Profils MIDI par appareil (ex : "Quad Cortex") avec raccourcis prédéfinis.</summary>
+    public List<MidiProfile> MidiProfiles { get; set; } = [];
 }

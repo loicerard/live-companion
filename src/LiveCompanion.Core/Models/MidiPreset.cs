@@ -15,9 +15,6 @@ public class MidiPreset
     /// <summary>Type d'événement MIDI.</summary>
     public MidiEventType Type { get; set; } = MidiEventType.ControlChange;
 
-    /// <summary>Canal MIDI (1–16).</summary>
-    public int Channel { get; set; } = 1;
-
     /// <summary>Premier octet de données (numéro de CC, numéro de note…).</summary>
     public int Data1 { get; set; }
 
