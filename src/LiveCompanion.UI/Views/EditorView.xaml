@@ -461,17 +461,41 @@
                 <TabItem Header="MIDI">
                     <DockPanel Margin="0,8,0,0">
                         <Border DockPanel.Dock="Top" Style="{StaticResource CardStyle}" Padding="20,8">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="+ Ajouter"
-                                        Command="{Binding AddMidiEventCommand}"
-                                        Style="{StaticResource ActionButtonStyle}" />
-                                <Button Content="Supprimer"
-                                        Command="{Binding RemoveMidiEventCommand}"
-                                        Style="{StaticResource ActionButtonStyle}"
-                                        Foreground="#F38BA8" />
-                                <Button Content="Test"
-                                        Command="{Binding TestMidiEventCommand}"
-                                        Style="{StaticResource AccentButtonStyle}" />
+                            <StackPanel>
+                                <!-- Preset toolbar -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,6">
+                                    <TextBlock Text="PRESET" Foreground="#585B70" FontSize="11" FontWeight="Bold"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ComboBox ItemsSource="{Binding MidiPresets}"
+                                              SelectedItem="{Binding SelectedMidiPreset}"
+                                              DisplayMemberPath="Name"
+                                              Style="{StaticResource EditorComboStyle}"
+                                              MinWidth="180"
+                                              Margin="0,0,6,0" />
+                                    <Button Content="Appliquer"
+                                            Command="{Binding ApplyMidiPresetCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                    <Button Content="Sauver preset"
+                                            Command="{Binding SaveMidiEventAsPresetCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                    <Button Content="Suppr. preset"
+                                            Command="{Binding DeleteMidiPresetCommand}"
+                                            Style="{StaticResource ActionButtonStyle}"
+                                            Foreground="#F38BA8" />
+                                </StackPanel>
+                                <!-- Event actions -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="+ Ajouter"
+                                            Command="{Binding AddMidiEventCommand}"
+                                            Style="{StaticResource ActionButtonStyle}" />
+                                    <Button Content="Supprimer"
+                                            Command="{Binding RemoveMidiEventCommand}"
+                                            Style="{StaticResource ActionButtonStyle}"
+                                            Foreground="#F38BA8" />
+                                    <Button Content="Test"
+                                            Command="{Binding TestMidiEventCommand}"
+                                            Style="{StaticResource AccentButtonStyle}" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

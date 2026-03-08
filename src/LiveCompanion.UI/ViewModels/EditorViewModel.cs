@@ -76,6 +76,15 @@ public partial class EditorViewModel : ViewModelBase
     public IReadOnlyList<string> AvailableMidiPorts => _midiEngine.GetAvailablePorts();
 
     // ------------------------------------------------------------------ //
+    // Presets MIDI (#raccourcis)
+    // ------------------------------------------------------------------ //
+
+    public ObservableCollection<MidiPreset> MidiPresets { get; } = [];
+
+    [ObservableProperty]
+    private MidiPreset? _selectedMidiPreset;
+
+    // ------------------------------------------------------------------ //
     // Piste de clic (#20)
     // ------------------------------------------------------------------ //
 
@@ -104,6 +113,13 @@ public partial class EditorViewModel : ViewModelBase
         _log = log;
         _liveModeGuard = liveModeGuard;
         RefreshSongList();
+        LoadMidiPresets();
+    }
+
+    private void LoadMidiPresets()
+    {
+        foreach (var preset in _projectStore.GetSettings().MidiPresets)
+            MidiPresets.Add(preset);
     }
 
     private void RefreshSongList()
@@ -422,6 +438,63 @@ public partial class EditorViewModel : ViewModelBase
         {
             StatusMessage = "Initialisez le MIDI dans Configuration avant de tester.";
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Commandes — Presets MIDI
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private void ApplyMidiPreset()
+    {
+        if (SelectedMidiEvent is null || SelectedMidiPreset is null) return;
+
+        SelectedMidiEvent.Type = SelectedMidiPreset.Type;
+        SelectedMidiEvent.Channel = SelectedMidiPreset.Channel;
+        SelectedMidiEvent.Data1 = SelectedMidiPreset.Data1;
+        SelectedMidiEvent.Data2 = SelectedMidiPreset.Data2;
+        StatusMessage = $"Preset \"{SelectedMidiPreset.Name}\" appliqué.";
+    }
+
+    [RelayCommand]
+    private void SaveMidiEventAsPreset()
+    {
+        if (SelectedMidiEvent is null) return;
+
+        SelectedMidiEvent.ApplyToModel();
+
+        var preset = new MidiPreset
+        {
+            Name = $"Preset {MidiPresets.Count + 1}",
+            Type = SelectedMidiEvent.Type,
+            Channel = SelectedMidiEvent.Channel,
+            Data1 = SelectedMidiEvent.Data1,
+            Data2 = SelectedMidiEvent.Data2,
+        };
+
+        MidiPresets.Add(preset);
+        SelectedMidiPreset = preset;
+        PersistPresets();
+        StatusMessage = $"Preset \"{preset.Name}\" créé.";
+    }
+
+    [RelayCommand]
+    private void DeleteMidiPreset()
+    {
+        if (SelectedMidiPreset is null) return;
+
+        var name = SelectedMidiPreset.Name;
+        MidiPresets.Remove(SelectedMidiPreset);
+        SelectedMidiPreset = null;
+        PersistPresets();
+        StatusMessage = $"Preset \"{name}\" supprimé.";
+    }
+
+    private void PersistPresets()
+    {
+        var settings = _projectStore.GetSettings();
+        settings.MidiPresets = MidiPresets.ToList();
+        _projectStore.SaveSettings(settings);
     }
 
     // ------------------------------------------------------------------ //

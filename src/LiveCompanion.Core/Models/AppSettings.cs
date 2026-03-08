@@ -16,4 +16,7 @@ public class AppSettings
     /// Valeur par défaut : 3.
     /// </summary>
     public int CountdownBars { get; set; } = 3;
+
+    /// <summary>Presets MIDI réutilisables (raccourcis de configuration).</summary>
+    public List<MidiPreset> MidiPresets { get; set; } = [];
 }
