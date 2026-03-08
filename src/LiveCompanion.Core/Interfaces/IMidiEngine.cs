@@ -19,10 +19,16 @@ public interface IMidiEngine
     IReadOnlyList<string> GetAvailablePorts();
 
     /// <summary>
-    /// Envoie un événement MIDI immédiatement sur le device spécifié dans l'événement.
+    /// Envoie un événement MIDI en résolvant les ports/canaux depuis les profils référencés.
+    /// Le message est envoyé une fois par profil ciblé.
     /// </summary>
-    /// <param name="midiEvent">Événement MIDI à envoyer.</param>
-    Task SendEventAsync(MidiEvent midiEvent);
+    Task SendEventAsync(MidiEvent midiEvent, IReadOnlyList<MidiProfile> profiles);
+
+    /// <summary>
+    /// Envoie un message MIDI directement sur un port et canal spécifiques.
+    /// Utilisé pour les tests de configuration (sans passer par les profils).
+    /// </summary>
+    Task SendDirectAsync(MidiEventType type, string deviceOut, int channel, int data1, int data2);
 
     /// <summary>Libère les ressources du moteur MIDI.</summary>
     Task ShutdownAsync();

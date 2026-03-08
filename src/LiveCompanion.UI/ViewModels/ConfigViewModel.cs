@@ -303,16 +303,7 @@ public partial class ConfigViewModel : ViewModelBase
         // Envoie un NoteOn de test sur chaque port sélectionné
         foreach (var port in selectedPorts)
         {
-            var testEvent = new MidiEvent
-            {
-                Type = MidiEventType.NoteOn,
-                DeviceOut = port,
-                Channel = 1,
-                Data1 = 60, // C4
-                Data2 = 100,
-                Position = new TimelinePosition(0, 1, 1, 0)
-            };
-            await _midiEngine.SendEventAsync(testEvent);
+            await _midiEngine.SendDirectAsync(MidiEventType.NoteOn, port, 1, 60, 100);
         }
 
         MidiTestResult = $"Test envoyé sur {selectedPorts.Count} port(s) — NoteOn C4";

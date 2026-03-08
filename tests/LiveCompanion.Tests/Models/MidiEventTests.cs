@@ -13,8 +13,7 @@ public class MidiEventTests
 
         evt.Id.Should().NotBe(Guid.Empty);
         evt.Type.Should().Be(MidiEventType.ProgramChange);
-        evt.DeviceOut.Should().BeEmpty();
-        evt.Channel.Should().Be(1);
+        evt.ProfileIds.Should().BeEmpty();
         evt.Data1.Should().Be(0);
         evt.Data2.Should().Be(0);
         evt.Position.Should().Be(TimelinePosition.Zero);
@@ -23,20 +22,19 @@ public class MidiEventTests
     [Fact]
     public void MidiEvent_CanSetAllProperties()
     {
+        var profileId = Guid.NewGuid();
         var pos = new TimelinePosition(1, 2, 3, 0);
         var evt = new MidiEvent
         {
             Type = MidiEventType.ControlChange,
-            DeviceOut = "MockMIDI Port 1",
-            Channel = 10,
+            ProfileIds = [profileId],
             Data1 = 7,
             Data2 = 100,
             Position = pos,
         };
 
         evt.Type.Should().Be(MidiEventType.ControlChange);
-        evt.DeviceOut.Should().Be("MockMIDI Port 1");
-        evt.Channel.Should().Be(10);
+        evt.ProfileIds.Should().ContainSingle().Which.Should().Be(profileId);
         evt.Data1.Should().Be(7);
         evt.Data2.Should().Be(100);
         evt.Position.Should().Be(pos);

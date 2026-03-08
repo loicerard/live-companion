@@ -84,9 +84,9 @@ public class MidiEngineRealTests : IDisposable
     [Fact]
     public async Task SendEvent_WithoutInit_ShouldThrow()
     {
-        var evt = new MidiEvent { Type = MidiEventType.NoteOn, Channel = 1, Data1 = 60 };
+        var evt = new MidiEvent { Type = MidiEventType.NoteOn, Data1 = 60 };
 
-        var act = () => _engine.SendEventAsync(evt);
+        var act = () => _engine.SendEventAsync(evt, []);
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
@@ -95,26 +95,25 @@ public class MidiEngineRealTests : IDisposable
     {
         await _engine.InitializeAsync(new MidiConfig { SelectedPorts = [] });
 
-        var act = () => _engine.SendEventAsync(null!);
+        var act = () => _engine.SendEventAsync(null!, []);
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
 
     [Fact]
-    public async Task SendEvent_UnknownDevice_ShouldNotThrow()
+    public async Task SendEvent_UnknownProfile_ShouldNotThrow()
     {
         await _engine.InitializeAsync(new MidiConfig { SelectedPorts = [] });
 
         var evt = new MidiEvent
         {
             Type = MidiEventType.NoteOn,
-            Channel = 1,
+            ProfileIds = [Guid.NewGuid()],
             Data1 = 60,
             Data2 = 100,
-            DeviceOut = "UnknownDevice",
         };
 
-        // Should warn but not throw
-        await _engine.SendEventAsync(evt);
+        // Should warn but not throw (profile not found)
+        await _engine.SendEventAsync(evt, []);
     }
 
     // ------------------------------------------------------------------ //
@@ -128,7 +127,7 @@ public class MidiEngineRealTests : IDisposable
         await _engine.ShutdownAsync();
 
         var evt = new MidiEvent { Type = MidiEventType.NoteOn };
-        var act = () => _engine.SendEventAsync(evt);
+        var act = () => _engine.SendEventAsync(evt, []);
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
@@ -145,18 +144,9 @@ public class MidiEngineRealTests : IDisposable
     [Fact]
     public void BuildMidiMessage_NoteOn_ShouldBuildCorrectly()
     {
-        var evt = new MidiEvent
-        {
-            Type = MidiEventType.NoteOn,
-            Channel = 1,
-            Data1 = 60,  // middle C
-            Data2 = 100, // velocity
-        };
-
-        int msg = MidiEngineReal.BuildMidiMessage(evt);
+        int msg = MidiEngineReal.BuildMidiMessage(MidiEventType.NoteOn, 1, 60, 100);
 
         // Status = 0x90 (NoteOn ch1), Data1 = 60, Data2 = 100
-        // Format: status | (data1 << 8) | (data2 << 16)
         int expected = 0x90 | (60 << 8) | (100 << 16);
         msg.Should().Be(expected);
     }
@@ -164,15 +154,7 @@ public class MidiEngineRealTests : IDisposable
     [Fact]
     public void BuildMidiMessage_NoteOff_Channel10_ShouldBuildCorrectly()
     {
-        var evt = new MidiEvent
-        {
-            Type = MidiEventType.NoteOff,
-            Channel = 10,
-            Data1 = 36,
-            Data2 = 0,
-        };
-
-        int msg = MidiEngineReal.BuildMidiMessage(evt);
+        int msg = MidiEngineReal.BuildMidiMessage(MidiEventType.NoteOff, 10, 36, 0);
 
         // Status = 0x80 | 9 (channel 10 = index 9)
         int expected = (0x80 | 9) | (36 << 8) | (0 << 16);
@@ -182,15 +164,7 @@ public class MidiEngineRealTests : IDisposable
     [Fact]
     public void BuildMidiMessage_ControlChange_ShouldBuildCorrectly()
     {
-        var evt = new MidiEvent
-        {
-            Type = MidiEventType.ControlChange,
-            Channel = 1,
-            Data1 = 7,   // volume
-            Data2 = 127, // max
-        };
-
-        int msg = MidiEngineReal.BuildMidiMessage(evt);
+        int msg = MidiEngineReal.BuildMidiMessage(MidiEventType.ControlChange, 1, 7, 127);
 
         int expected = 0xB0 | (7 << 8) | (127 << 16);
         msg.Should().Be(expected);
@@ -199,15 +173,7 @@ public class MidiEngineRealTests : IDisposable
     [Fact]
     public void BuildMidiMessage_ProgramChange_ShouldHaveOnlyOneDataByte()
     {
-        var evt = new MidiEvent
-        {
-            Type = MidiEventType.ProgramChange,
-            Channel = 3,
-            Data1 = 42,
-            Data2 = 99, // should be ignored
-        };
-
-        int msg = MidiEngineReal.BuildMidiMessage(evt);
+        int msg = MidiEngineReal.BuildMidiMessage(MidiEventType.ProgramChange, 3, 42, 99);
 
         // ProgramChange: status | (data1 << 8) — no data2
         int expected = (0xC0 | 2) | (42 << 8);
@@ -218,28 +184,18 @@ public class MidiEngineRealTests : IDisposable
     public void BuildMidiMessage_ShouldClampChannel()
     {
         // Channel 0 → clamped to 1 → index 0
-        var evtLow = new MidiEvent { Type = MidiEventType.NoteOn, Channel = 0, Data1 = 60, Data2 = 100 };
-        int msgLow = MidiEngineReal.BuildMidiMessage(evtLow);
+        int msgLow = MidiEngineReal.BuildMidiMessage(MidiEventType.NoteOn, 0, 60, 100);
         (msgLow & 0x0F).Should().Be(0, "channel 0 should be clamped to 1 (index 0)");
 
         // Channel 17 → clamped to 16 → index 15
-        var evtHigh = new MidiEvent { Type = MidiEventType.NoteOn, Channel = 17, Data1 = 60, Data2 = 100 };
-        int msgHigh = MidiEngineReal.BuildMidiMessage(evtHigh);
+        int msgHigh = MidiEngineReal.BuildMidiMessage(MidiEventType.NoteOn, 17, 60, 100);
         (msgHigh & 0x0F).Should().Be(15, "channel 17 should be clamped to 16 (index 15)");
     }
 
     [Fact]
     public void BuildMidiMessage_ShouldClampDataValues()
     {
-        var evt = new MidiEvent
-        {
-            Type = MidiEventType.NoteOn,
-            Channel = 1,
-            Data1 = 200,  // > 127, should clamp
-            Data2 = -10,  // < 0, should clamp
-        };
-
-        int msg = MidiEngineReal.BuildMidiMessage(evt);
+        int msg = MidiEngineReal.BuildMidiMessage(MidiEventType.NoteOn, 1, 200, -10);
 
         int data1 = (msg >> 8) & 0x7F;
         int data2 = (msg >> 16) & 0x7F;
@@ -252,8 +208,7 @@ public class MidiEngineRealTests : IDisposable
     {
         for (int ch = 1; ch <= 16; ch++)
         {
-            var evt = new MidiEvent { Type = MidiEventType.NoteOn, Channel = ch };
-            int msg = MidiEngineReal.BuildMidiMessage(evt);
+            int msg = MidiEngineReal.BuildMidiMessage(MidiEventType.NoteOn, ch, 0, 0);
             (msg & 0x0F).Should().Be(ch - 1, $"channel {ch} should map to index {ch - 1}");
         }
     }

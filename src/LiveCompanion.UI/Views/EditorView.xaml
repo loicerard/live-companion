@@ -549,23 +549,19 @@
                                                   MinWidth="160"
                                                   Margin="0,0,0,12" />
 
-                                        <!-- Device Out -->
-                                        <TextBlock Text="DEVICE MIDI OUT" Style="{StaticResource SectionHeader}" />
-                                        <ComboBox ItemsSource="{Binding DataContext.AvailableMidiPorts,
-                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                  SelectedItem="{Binding DeviceOut}"
-                                                  Style="{StaticResource EditorComboStyle}"
-                                                  MinWidth="200"
-                                                  Margin="0,0,0,12" />
-
-                                        <!-- Channel -->
-                                        <TextBlock Text="CANAL MIDI (1-16)" Style="{StaticResource SectionHeader}" />
-                                        <TextBox Text="{Binding Channel,
-                                                        UpdateSourceTrigger=LostFocus,
-                                                        ValidatesOnNotifyDataErrors=True}"
-                                                 Style="{StaticResource EditorTextBoxStyle}"
-                                                 Width="80" HorizontalAlignment="Left"
-                                                 Margin="0,0,0,12" />
+                                        <!-- Périphériques (multi-select) -->
+                                        <TextBlock Text="PÉRIPHÉRIQUES" Style="{StaticResource SectionHeader}" />
+                                        <ItemsControl ItemsSource="{Binding ProfileSelections}"
+                                                      Margin="0,0,0,12">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected}"
+                                                              Content="{Binding DisplayName}"
+                                                              Foreground="#CDD6F4"
+                                                              Margin="0,2" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
 
                                         <!-- Data1 -->
                                         <TextBlock Text="DATA 1 (0-127)" Style="{StaticResource SectionHeader}" />

@@ -79,7 +79,7 @@ public class SongTests
     public void Song_CanAddMidiEvents()
     {
         var song = new Song();
-        var evt = new MidiEvent { Type = MidiEventType.ProgramChange, Channel = 1, Data1 = 42 };
+        var evt = new MidiEvent { Type = MidiEventType.ProgramChange, Data1 = 42 };
 
         song.MidiEvents.Add(evt);
 

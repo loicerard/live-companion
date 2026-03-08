@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,18 +14,31 @@ public partial class MidiEventViewModel : ObservableValidator
 {
     private readonly MidiEvent _model;
 
-    public MidiEventViewModel(MidiEvent model)
+    public MidiEventViewModel(MidiEvent model, IReadOnlyList<MidiProfile> availableProfiles)
     {
         _model = model;
         _type = model.Type;
-        _deviceOut = model.DeviceOut;
-        _channel = model.Channel;
         _data1 = model.Data1;
         _data2 = model.Data2;
         _sectionIndex = model.Position.SectionIndex;
         _bar = model.Position.Bar;
         _beat = model.Position.Beat;
         _tick = model.Position.Tick;
+
+        // Construire la liste de sélection des profils
+        foreach (var profile in availableProfiles)
+        {
+            var item = new ProfileSelectionItem(profile)
+            {
+                IsSelected = model.ProfileIds.Contains(profile.Id)
+            };
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ProfileSelectionItem.IsSelected))
+                    OnPropertyChanged(nameof(DisplaySummary));
+            };
+            ProfileSelections.Add(item);
+        }
     }
 
     public Guid Id => _model.Id;
@@ -32,15 +46,8 @@ public partial class MidiEventViewModel : ObservableValidator
     [ObservableProperty]
     private MidiEventType _type;
 
-    [ObservableProperty]
-    [NotifyDataErrorInfo]
-    [Required(ErrorMessage = "Le device de sortie est requis.")]
-    private string _deviceOut;
-
-    [ObservableProperty]
-    [NotifyDataErrorInfo]
-    [Range(1, 16, ErrorMessage = "Le canal MIDI doit être entre 1 et 16.")]
-    private int _channel;
+    /// <summary>Sélection des profils (multi-select via CheckBox).</summary>
+    public ObservableCollection<ProfileSelectionItem> ProfileSelections { get; } = [];
 
     [ObservableProperty]
     [NotifyDataErrorInfo]
@@ -86,8 +93,10 @@ public partial class MidiEventViewModel : ObservableValidator
     public void ApplyToModel()
     {
         _model.Type = Type;
-        _model.DeviceOut = DeviceOut;
-        _model.Channel = Channel;
+        _model.ProfileIds = ProfileSelections
+            .Where(p => p.IsSelected)
+            .Select(p => p.Profile.Id)
+            .ToList();
         _model.Data1 = Data1;
         _model.Data2 = Data2;
         _model.Position = new TimelinePosition(SectionIndex, Bar, Beat, Tick);
@@ -103,5 +112,65 @@ public partial class MidiEventViewModel : ObservableValidator
     public new bool HasErrors => ((INotifyDataErrorInfo)this).HasErrors;
 
     /// <summary>Résumé affiché dans la liste.</summary>
-    public string DisplaySummary => $"{Type} ch.{Channel} → {DeviceOut}";
+    public string DisplaySummary
+    {
+        get
+        {
+            var profileNames = ProfileSelections
+                .Where(p => p.IsSelected)
+                .Select(p => p.Profile.Name);
+            var targets = string.Join(", ", profileNames);
+            return string.IsNullOrEmpty(targets)
+                ? $"{Type} (aucun périphérique)"
+                : $"{Type} → {targets}";
+        }
+    }
+
+    /// <summary>
+    /// Met à jour la liste de profils disponibles (appelé quand les profils changent dans Config).
+    /// </summary>
+    public void RefreshProfiles(IReadOnlyList<MidiProfile> availableProfiles)
+    {
+        // Sauvegarder les IDs actuellement sélectionnés
+        var selectedIds = ProfileSelections
+            .Where(p => p.IsSelected)
+            .Select(p => p.Profile.Id)
+            .ToHashSet();
+
+        ProfileSelections.Clear();
+
+        foreach (var profile in availableProfiles)
+        {
+            var item = new ProfileSelectionItem(profile)
+            {
+                IsSelected = selectedIds.Contains(profile.Id)
+            };
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ProfileSelectionItem.IsSelected))
+                    OnPropertyChanged(nameof(DisplaySummary));
+            };
+            ProfileSelections.Add(item);
+        }
+
+        OnPropertyChanged(nameof(DisplaySummary));
+    }
+}
+
+/// <summary>
+/// Représente un profil MIDI avec son état de sélection (coché/décoché).
+/// </summary>
+public partial class ProfileSelectionItem : ObservableObject
+{
+    public MidiProfile Profile { get; }
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    public ProfileSelectionItem(MidiProfile profile)
+    {
+        Profile = profile;
+    }
+
+    public string DisplayName => Profile.Name;
 }

@@ -272,13 +272,19 @@ public class TimelineSchedulerMockTests : IDisposable
         var midiEngine = new MidiEngineMock(_log);
         await midiEngine.InitializeAsync(new MidiConfig { SelectedPorts = { "MockMIDI Port 1" } });
 
-        using var scheduler = new TimelineSchedulerMock(_log, midiEngine: midiEngine);
+        var projectStore = new ProjectStoreMock(_log);
+        var profile = new MidiProfile { Name = "Test", DeviceOut = "MockMIDI Port 1", DefaultChannel = 1 };
+        var settings = projectStore.GetSettings();
+        settings.MidiProfiles.Add(profile);
+        projectStore.SaveSettings(settings);
+
+        using var scheduler = new TimelineSchedulerMock(_log, midiEngine: midiEngine, projectStore: projectStore);
 
         var song = CreateTestSong(sectionCount: 1, barsPerSection: 2, tempo: 600);
         song.MidiEvents.Add(new MidiEvent
         {
             Type = MidiEventType.ProgramChange,
-            Channel = 1,
+            ProfileIds = [profile.Id],
             Data1 = 42,
             Position = TimelinePosition.Zero,
         });
