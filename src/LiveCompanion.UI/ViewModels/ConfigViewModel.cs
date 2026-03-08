@@ -154,6 +154,17 @@ public partial class ConfigViewModel : ViewModelBase
             CurrentProfilePresets.Add(preset);
     }
 
+    partial void OnSelectedPresetChanged(MidiPreset? value)
+    {
+        if (value is null) return;
+
+        // Pré-remplir le formulaire avec les valeurs du preset sélectionné
+        NewPresetName = value.Name;
+        NewPresetType = value.Type;
+        NewPresetData1 = value.Data1;
+        NewPresetData2 = value.Data2;
+    }
+
     // ------------------------------------------------------------------ //
     // Restauration de la configuration sauvegardée
     // ------------------------------------------------------------------ //
@@ -393,6 +404,31 @@ public partial class ConfigViewModel : ViewModelBase
 
         PersistProfiles();
         ProfileStatusMessage = $"Raccourci \"{preset.Name}\" ajouté.";
+    }
+
+    [RelayCommand]
+    private void UpdateSelectedPreset()
+    {
+        if (SelectedMidiProfile is null || SelectedPreset is null) return;
+
+        SelectedPreset.Name = string.IsNullOrWhiteSpace(NewPresetName)
+            ? SelectedPreset.Name
+            : NewPresetName.Trim();
+        SelectedPreset.Type = NewPresetType;
+        SelectedPreset.Data1 = NewPresetData1;
+        SelectedPreset.Data2 = NewPresetData2;
+
+        // Refresh dans la liste observable pour mettre à jour l'affichage
+        var index = CurrentProfilePresets.IndexOf(SelectedPreset);
+        if (index >= 0)
+        {
+            var preset = SelectedPreset;
+            CurrentProfilePresets[index] = preset;
+            SelectedPreset = preset;
+        }
+
+        PersistProfiles();
+        ProfileStatusMessage = $"Raccourci \"{SelectedPreset.Name}\" modifié.";
     }
 
     [RelayCommand]
