@@ -26,6 +26,7 @@ public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider, IAudioM
     private readonly Dictionary<string, float> _busVolumes = new();
     private volatile bool _initialized;
     private int _activeVoices; // modified via Interlocked
+    private CancellationTokenSource _voiceCts = new(); // annulé par StopAll/Shutdown
     private AudioConfig? _config;
 
     public AudioEngineMock(ILogService log)
@@ -90,11 +91,20 @@ public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider, IAudioM
                             $"vol={send.Volume:F2} — active voices={ActiveVoices}");
 
             // Simule une courte durée de lecture (200 ms) puis libère la voix.
+            // Le CancellationToken empêche le Decrement si StopAll a été appelé entretemps.
+            var token = _voiceCts.Token;
             _ = Task.Run(async () =>
             {
-                await Task.Delay(200).ConfigureAwait(false);
-                Interlocked.Decrement(ref _activeVoices);
-                _log.Debug(LogSource.EngineMock, $"[AudioEngine] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
+                try
+                {
+                    await Task.Delay(200, token).ConfigureAwait(false);
+                    Interlocked.Decrement(ref _activeVoices);
+                    _log.Debug(LogSource.EngineMock, $"[AudioEngine] Clip '{clip.Name}' ended — active voices={ActiveVoices}");
+                }
+                catch (OperationCanceledException)
+                {
+                    // StopAll/Shutdown a été appelé — le compteur a déjà été remis à 0
+                }
             });
         }
 
@@ -105,6 +115,10 @@ public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider, IAudioM
     public Task StopAllAsync()
     {
         ThrowIfNotInitialized();
+        // Annuler les Task.Delay en cours pour empêcher les Decrement orphelins
+        _voiceCts.Cancel();
+        _voiceCts.Dispose();
+        _voiceCts = new CancellationTokenSource();
         Volatile.Write(ref _activeVoices, 0);
         _log.Debug(LogSource.EngineMock, "[AudioEngine] StopAll — active voices reset to 0");
         return Task.CompletedTask;
@@ -114,6 +128,9 @@ public sealed class AudioEngineMock : IAudioEngine, IAudioMeterProvider, IAudioM
     public Task ShutdownAsync()
     {
         _initialized = false;
+        _voiceCts.Cancel();
+        _voiceCts.Dispose();
+        _voiceCts = new CancellationTokenSource();
         Volatile.Write(ref _activeVoices, 0);
         _config = null;
         _log.Debug(LogSource.EngineMock, "[AudioEngine] Shutdown");

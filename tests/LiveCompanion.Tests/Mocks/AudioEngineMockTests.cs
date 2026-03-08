@@ -180,4 +180,50 @@ public class AudioEngineMockTests
         var act = () => engine.StopAllAsync();
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task ActiveVoices_AfterStopAll_ShouldNotGoNegative()
+    {
+        // Regression: fire-and-forget Task.Delay decrement was not cancelled
+        // by StopAll, causing _activeVoices to go negative after Stop.
+        var engine = CreateEngine();
+        await engine.InitializeAsync(DefaultConfig);
+
+        // Lancer un clip (200ms mock duration)
+        await engine.PlayClipAsync(new AudioClip { Name = "Click" });
+        engine.ActiveVoices.Should().Be(1);
+
+        // Stop immédiatement (avant que le Task.Delay(200) ne se termine)
+        await engine.StopAllAsync();
+        engine.ActiveVoices.Should().Be(0);
+
+        // Attendre que le Task.Delay(200) ait eu le temps de se terminer
+        await Task.Delay(350);
+
+        // Le compteur ne doit PAS être passé en négatif
+        engine.ActiveVoices.Should().Be(0,
+            "StopAll doit annuler les voix fantômes pour empêcher le compteur de devenir négatif");
+    }
+
+    [Fact]
+    public async Task PlayStopPlay_ShouldMaintainCorrectVoiceCount()
+    {
+        // Regression: Play→Stop→Play cycle caused _activeVoices drift
+        var engine = CreateEngine();
+        await engine.InitializeAsync(DefaultConfig);
+
+        // Cycle 1 : Play → Stop
+        await engine.PlayClipAsync(new AudioClip { Name = "Click" });
+        engine.ActiveVoices.Should().Be(1);
+        await engine.StopAllAsync();
+
+        // Cycle 2 : Play à nouveau
+        await engine.PlayClipAsync(new AudioClip { Name = "Click" });
+        engine.ActiveVoices.Should().Be(1,
+            "Après un cycle Play→Stop→Play, le compteur de voix doit refléter la seule voix active");
+
+        // Laisser la voix se terminer normalement
+        await Task.Delay(350);
+        engine.ActiveVoices.Should().Be(0);
+    }
 }
