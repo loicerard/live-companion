@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveCompanion.Core.Interfaces;
 using LiveCompanion.Core.Models;
+using Microsoft.Win32;
 
 namespace LiveCompanion.UI.ViewModels;
 
